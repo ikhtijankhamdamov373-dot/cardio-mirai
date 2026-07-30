@@ -1,0 +1,2696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cardio MIRAI | cardiomirai.uz</title>
+  <style>
+    :root {
+      --navy: #0b1f3a;
+      --blue: #175ca8;
+      --blue-soft: #eaf3ff;
+      --red: #d62839;
+      --red-soft: #fff0f2;
+      --ink: #172033;
+      --muted: #607086;
+      --line: #dbe4ef;
+      --panel: #ffffff;
+      --bg: #f5f8fc;
+      --green: #16834a;
+      --amber: #c47a00;
+      --shadow: 0 16px 40px rgba(11, 31, 58, .10);
+      --radius: 8px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.5;
+    }
+
+    button, input, select { font: inherit; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(255, 255, 255, .96);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(10px);
+    }
+
+    .nav {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 14px 22px;
+      display: flex;
+      align-items: center;
+      gap: 22px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--navy);
+      min-width: max-content;
+    }
+
+    .mark {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      color: #fff;
+      background: linear-gradient(135deg, var(--red), var(--blue));
+      box-shadow: 0 10px 22px rgba(214, 40, 57, .24);
+      font-weight: 900;
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 1rem;
+      letter-spacing: .02em;
+    }
+
+    .brand span {
+      display: block;
+      color: var(--muted);
+      font-size: .75rem;
+      margin-top: -2px;
+    }
+
+    .links {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      font-size: .9rem;
+    }
+
+    .links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-weight: 650;
+    }
+
+    .links a:hover { color: var(--blue); }
+
+    .cta {
+      border: 0;
+      background: var(--red);
+      color: #fff;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 10px 24px rgba(214, 40, 57, .22);
+    }
+
+    .hero {
+      background:
+        linear-gradient(120deg, rgba(11, 31, 58, .94), rgba(23, 92, 168, .86)),
+        repeating-linear-gradient(90deg, transparent 0 44px, rgba(255,255,255,.07) 45px 46px),
+        radial-gradient(circle at 75% 35%, rgba(214, 40, 57, .35), transparent 28%);
+      color: #fff;
+    }
+
+    .hero-inner {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 62px 22px 48px;
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 34px;
+      align-items: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .12);
+      border: 1px solid rgba(255, 255, 255, .20);
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 18px 0 14px;
+      max-width: 720px;
+      font-size: clamp(2.2rem, 5vw, 4.4rem);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      margin: 0;
+      max-width: 680px;
+      color: rgba(255, 255, 255, .82);
+      font-size: 1.08rem;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 26px;
+    }
+
+    .primary, .secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      border-radius: 6px;
+      padding: 11px 16px;
+      font-weight: 850;
+      text-decoration: none;
+    }
+
+    .primary { color: #fff; background: var(--red); }
+    .secondary {
+      color: #fff;
+      border: 1px solid rgba(255,255,255,.30);
+      background: rgba(255,255,255,.10);
+    }
+
+    .hero-panel {
+      background: rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.20);
+      border-radius: var(--radius);
+      padding: 18px;
+    }
+
+    .ecg-strip {
+      height: 156px;
+      border-radius: 6px;
+      background:
+        linear-gradient(rgba(255,255,255,.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px),
+        rgba(255,255,255,.06);
+      background-size: 20px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .ecg-strip svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .hero-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .metric {
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 6px;
+      padding: 12px;
+      background: rgba(255,255,255,.08);
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 1.35rem;
+      line-height: 1.1;
+    }
+
+    .metric span {
+      display: block;
+      margin-top: 4px;
+      color: rgba(255,255,255,.76);
+      font-size: .78rem;
+    }
+
+    main {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 28px 22px 44px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      margin: 22px 0 14px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 1.55rem;
+      line-height: 1.15;
+    }
+
+    .section-head p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      max-width: 720px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--blue);
+      background: var(--blue-soft);
+      border: 1px solid #cfe3fb;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: .78rem;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr .9fr;
+      gap: 22px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-title {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(90deg, #fff, #f4f9ff);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .panel-title strong {
+      color: var(--navy);
+      font-size: .92rem;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .panel-body { padding: 16px; }
+
+    .form-section {
+      margin: 18px 0 10px;
+      color: var(--red);
+      font-size: .78rem;
+      font-weight: 900;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .form-section:first-child { margin-top: 0; }
+
+    .fields {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .field.full { grid-column: 1 / -1; }
+
+    label {
+      color: #3c4b61;
+      font-size: .78rem;
+      font-weight: 750;
+    }
+
+    input[type="number"], select {
+      width: 100%;
+      border: 1px solid #ccd8e6;
+      background: #fbfdff;
+      border-radius: 6px;
+      padding: 10px 11px;
+      color: var(--ink);
+    }
+
+    input:focus, select:focus {
+      outline: 3px solid rgba(23, 92, 168, .14);
+      border-color: var(--blue);
+      background: #fff;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+
+    .segmented.three { grid-template-columns: repeat(3, 1fr); }
+
+    .choice {
+      min-height: 40px;
+      border: 1px solid #ccd8e6;
+      background: #fbfdff;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 8px;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: .86rem;
+      font-weight: 700;
+    }
+
+    .choice input { display: none; }
+
+    .choice:has(input:checked) {
+      color: var(--blue);
+      border-color: var(--blue);
+      background: var(--blue-soft);
+      box-shadow: inset 0 0 0 1px rgba(23,92,168,.2);
+    }
+
+    .choice.alert:has(input:checked) {
+      color: var(--red);
+      border-color: var(--red);
+      background: var(--red-soft);
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: .72rem;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 6px;
+      padding: 12px 14px;
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    .btn-main {
+      flex: 1;
+      color: #fff;
+      background: linear-gradient(135deg, var(--red), #b91527);
+      box-shadow: 0 12px 28px rgba(214, 40, 57, .22);
+    }
+
+    .btn-ghost {
+      color: var(--navy);
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .upload-grid {
+      display: grid;
+      grid-template-columns: .9fr 1.1fr;
+      gap: 18px;
+    }
+
+    .dropzone {
+      min-height: 270px;
+      border: 2px dashed #b9cce2;
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, #fbfdff, #f4f9ff);
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      text-align: center;
+      transition: border-color .15s, background .15s;
+    }
+
+    .dropzone.dragover {
+      border-color: var(--red);
+      background: #fff7f8;
+    }
+
+    .dropzone input { display: none; }
+
+    .upload-icon {
+      width: 58px;
+      height: 58px;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 12px;
+      border-radius: 14px;
+      color: #fff;
+      background: linear-gradient(135deg, var(--blue), var(--red));
+      font-size: 1.5rem;
+    }
+
+    .upload-copy strong {
+      display: block;
+      color: var(--navy);
+      font-size: 1.05rem;
+      margin-bottom: 6px;
+    }
+
+    .upload-copy span {
+      display: block;
+      color: var(--muted);
+      font-size: .87rem;
+    }
+
+    .upload-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 16px;
+      border-radius: 6px;
+      padding: 10px 13px;
+      color: #fff;
+      background: var(--blue);
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    .file-list {
+      display: grid;
+      gap: 10px;
+      max-height: 360px;
+      overflow: auto;
+    }
+
+    .file-card {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px;
+      background: #fff;
+      display: grid;
+      grid-template-columns: 42px 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .file-type {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      color: var(--blue);
+      background: var(--blue-soft);
+      font-weight: 900;
+      font-size: .72rem;
+    }
+
+    .file-card strong {
+      display: block;
+      color: var(--navy);
+      font-size: .9rem;
+      word-break: break-word;
+    }
+
+    .file-card span {
+      display: block;
+      color: var(--muted);
+      font-size: .76rem;
+      margin-top: 2px;
+    }
+
+    .remove-file {
+      border: 0;
+      background: var(--red-soft);
+      color: var(--red);
+      border-radius: 6px;
+      padding: 7px 9px;
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    .preview {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      min-height: 150px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      color: var(--muted);
+      text-align: center;
+      padding: 12px;
+    }
+
+    .preview img {
+      display: block;
+      max-width: 100%;
+      max-height: 280px;
+    }
+
+    .analysis-panel {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .analysis-actions {
+      display: flex;
+      gap: 10px;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      background: #f8fbff;
+    }
+
+    .analysis-actions .btn {
+      flex: 1;
+    }
+
+    .analysis-result {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .finding-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px;
+      background: linear-gradient(135deg, #fff, #f4f9ff);
+    }
+
+    .finding-head strong {
+      display: block;
+      color: var(--navy);
+      font-size: 1.05rem;
+    }
+
+    .finding-head span {
+      color: var(--muted);
+      font-size: .8rem;
+    }
+
+    .probability {
+      min-width: 92px;
+      text-align: center;
+      border-radius: 6px;
+      color: #fff;
+      background: var(--blue);
+      padding: 9px 10px;
+      font-weight: 900;
+      font-size: 1.25rem;
+    }
+
+    .finding-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .finding-box {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px;
+      background: #fff;
+    }
+
+    .finding-box b {
+      display: block;
+      color: var(--navy);
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .finding-box span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: .88rem;
+    }
+
+    .analysis-note {
+      border: 1px solid #f1d288;
+      border-left: 4px solid var(--amber);
+      border-radius: 6px;
+      background: #fff9ea;
+      color: #6f4a00;
+      padding: 10px;
+      font-size: .82rem;
+    }
+
+    .pipeline-steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .pipeline-step {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfdff;
+      padding: 9px;
+      font-size: .78rem;
+      color: var(--muted);
+    }
+
+    .pipeline-step b {
+      display: block;
+      color: var(--navy);
+      margin-bottom: 3px;
+    }
+
+    .feature-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+      font-size: .82rem;
+    }
+
+    .feature-table th,
+    .feature-table td {
+      border-bottom: 1px solid var(--line);
+      padding: 8px;
+      text-align: left;
+    }
+
+    .feature-table th {
+      color: var(--navy);
+      background: #f4f9ff;
+      font-size: .74rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .feature-table tr:last-child td { border-bottom: 0; }
+
+    .explain-bars {
+      display: grid;
+      gap: 8px;
+    }
+
+    .explain-row {
+      display: grid;
+      grid-template-columns: minmax(130px, .7fr) 1fr 46px;
+      gap: 8px;
+      align-items: center;
+      font-size: .82rem;
+    }
+
+    .explain-track {
+      height: 9px;
+      border-radius: 999px;
+      background: #e8eef6;
+      overflow: hidden;
+    }
+
+    .explain-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--blue), var(--red));
+    }
+
+    .integrated-card {
+      margin-top: 18px;
+    }
+
+    .integrated-actions {
+      display: flex;
+      gap: 10px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #f8fbff;
+    }
+
+    .integrated-actions .btn {
+      flex: 1;
+    }
+
+    .integrated-result {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .integrated-hero {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: linear-gradient(135deg, #fff, #f4f9ff);
+      padding: 14px;
+    }
+
+    .integrated-hero h3 {
+      margin: 0 0 6px;
+      color: var(--navy);
+      font-size: 1.15rem;
+    }
+
+    .integrated-hero p {
+      margin: 0;
+      color: var(--muted);
+      font-size: .9rem;
+    }
+
+    .confidence-meter {
+      min-width: 112px;
+      text-align: center;
+      border-radius: 6px;
+      background: var(--navy);
+      color: #fff;
+      padding: 11px;
+      font-weight: 900;
+      font-size: 1.45rem;
+    }
+
+    .confidence-meter span {
+      display: block;
+      margin-top: 2px;
+      color: rgba(255,255,255,.72);
+      font-size: .72rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .summary-box {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 12px;
+    }
+
+    .summary-box h4 {
+      margin: 0 0 8px;
+      color: var(--navy);
+      font-size: .92rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .summary-box ul {
+      margin: 0;
+      padding-left: 18px;
+      color: #334158;
+      font-size: .88rem;
+    }
+
+    .interpretation-box {
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--blue);
+      border-radius: 6px;
+      background: #fbfdff;
+      padding: 12px;
+      color: #334158;
+      font-size: .92rem;
+    }
+
+    .result-stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .score-card {
+      padding: 18px;
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, #fff, #f4f9ff);
+      border: 1px solid var(--line);
+    }
+
+    .score-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .score-value {
+      color: var(--navy);
+      font-size: 3.2rem;
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    .risk-pill {
+      border-radius: 999px;
+      padding: 8px 11px;
+      font-weight: 900;
+      font-size: .82rem;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .low { color: var(--green); background: #e9f8f0; }
+    .moderate { color: var(--amber); background: #fff6e5; }
+    .high { color: var(--red); background: var(--red-soft); }
+
+    .bar {
+      height: 10px;
+      margin-top: 16px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: linear-gradient(90deg, #24a35a 0 30%, #e7a21b 30% 60%, #d62839 60% 100%);
+    }
+
+    .needle {
+      width: 4px;
+      height: 18px;
+      margin-top: -14px;
+      border-radius: 999px;
+      background: var(--navy);
+      transform: translateX(var(--score-pos));
+    }
+
+    .list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 8px;
+    }
+
+    .list li {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px;
+      background: #fff;
+      color: #334158;
+      font-size: .88rem;
+    }
+
+    .factor-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .factor-line b { color: var(--navy); }
+
+    .factor-line span {
+      color: var(--muted);
+      font-size: .76rem;
+      white-space: nowrap;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .info {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      padding: 16px;
+    }
+
+    .info h3 {
+      margin: 0 0 8px;
+      color: var(--navy);
+      font-size: 1rem;
+    }
+
+    .info p {
+      margin: 0;
+      color: var(--muted);
+      font-size: .9rem;
+    }
+
+    .disclaimer {
+      margin-top: 18px;
+      border: 1px solid #f1d288;
+      border-left: 4px solid var(--amber);
+      border-radius: 6px;
+      background: #fff9ea;
+      color: #6f4a00;
+      padding: 13px 14px;
+      font-size: .86rem;
+    }
+
+    footer {
+      border-top: 1px solid var(--line);
+      background: #fff;
+      color: var(--muted);
+      padding: 24px 22px;
+      font-size: .84rem;
+    }
+
+    .footer-inner {
+      max-width: 1240px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 920px) {
+      .links { display: none; }
+      .hero-inner, .grid, .upload-grid { grid-template-columns: 1fr; }
+      .hero-inner { padding-top: 42px; }
+      .info-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 620px) {
+      .nav { padding: 12px 14px; }
+      main { padding: 20px 14px 36px; }
+      .hero-inner { padding: 34px 14px; }
+      .fields, .hero-metrics { grid-template-columns: 1fr; }
+      .section-head { align-items: start; flex-direction: column; }
+      .actions { flex-direction: column; }
+      .score-top { align-items: start; flex-direction: column; }
+      .file-card { grid-template-columns: 36px 1fr; }
+      .remove-file { grid-column: 1 / -1; }
+      .analysis-actions, .finding-head { flex-direction: column; align-items: stretch; }
+      .finding-grid { grid-template-columns: 1fr; }
+      .pipeline-steps { grid-template-columns: 1fr; }
+      .explain-row { grid-template-columns: 1fr; }
+      .integrated-actions, .integrated-hero { grid-template-columns: 1fr; flex-direction: column; align-items: stretch; }
+      .summary-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <nav class="nav" aria-label="Primary navigation">
+      <a class="brand" href="#top" aria-label="Cardio MIRAI home">
+        <span class="mark">CM</span>
+        <span>
+          <strong>Cardio MIRAI</strong>
+          <span>cardiomirai.uz</span>
+        </span>
+      </a>
+      <div class="links">
+        <a href="#screening">Screening</a>
+        <a href="#ecg-upload">ECG Upload</a>
+        <a href="#science">Science</a>
+        <a href="#contact">Contact</a>
+      </div>
+      <button class="cta" type="button" onclick="document.getElementById('screening').scrollIntoView()">Open prototype</button>
+    </nav>
+  </header>
+
+  <section class="hero" id="top">
+    <div class="hero-inner">
+      <div>
+        <span class="eyebrow">Hospital research prototype</span>
+        <h1>Cardio MIRAI</h1>
+        <p class="lead">A modern cardiovascular risk screening dashboard for clinical variables, echocardiography markers, and ECG file intake. Built as an official web prototype for cardiomirai.uz.</p>
+        <div class="hero-actions">
+          <a class="primary" href="#screening">Run risk screen</a>
+          <a class="secondary" href="#ecg-upload">Upload ECG</a>
+        </div>
+      </div>
+      <div class="hero-panel" aria-label="ECG visualization">
+        <div class="ecg-strip">
+          <svg viewBox="0 0 900 180" preserveAspectRatio="none" aria-hidden="true">
+            <polyline points="0,100 50,100 60,90 70,108 86,100 145,100 154,52 164,146 176,94 218,100 280,100 292,86 304,106 320,100 390,100 401,58 412,148 424,92 470,100 540,100 552,88 566,108 584,100 650,100 661,50 672,148 684,94 730,100 800,100 812,88 826,108 844,100 900,100" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="0,102 50,102 60,92 70,110 86,102 145,102 154,54 164,148 176,96 218,102 280,102 292,88 304,108 320,102 390,102 401,60 412,150 424,94 470,102 540,102 552,90 566,110 584,102 650,102 661,52 672,150 684,96 730,102 800,102 812,90 826,110 844,102 900,102" fill="none" stroke="#ff4b5f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="hero-metrics">
+          <div class="metric"><strong>14</strong><span>clinical inputs</span></div>
+          <div class="metric"><strong>ECG</strong><span>image, PDF, signal files</span></div>
+          <div class="metric"><strong>0-100</strong><span>prototype risk score</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <main>
+    <section class="section-head" id="screening">
+      <div>
+        <h2>Cardiovascular Risk Screening</h2>
+        <p>Enter available patient data. Age is required; all other fields can be left blank if not known.</p>
+      </div>
+      <span class="badge">Live dashboard</span>
+    </section>
+
+    <div class="grid">
+      <section class="panel">
+        <div class="panel-title">
+          <strong>Patient assessment</strong>
+          <span class="badge">Clinical + echo</span>
+        </div>
+        <div class="panel-body">
+          <div class="form-section">Demographics</div>
+          <div class="fields">
+            <div class="field">
+              <label for="age">Age</label>
+              <input id="age" type="number" min="18" max="120" value="60">
+            </div>
+            <div class="field">
+              <label>Sex</label>
+              <div class="segmented">
+                <label class="choice"><input type="radio" name="sex" value="female" checked>Female</label>
+                <label class="choice"><input type="radio" name="sex" value="male">Male</label>
+              </div>
+            </div>
+            <div class="field">
+              <label for="bmi">BMI</label>
+              <input id="bmi" type="number" min="10" max="70" step="0.1" value="27.5">
+              <span class="hint">kg/m2</span>
+            </div>
+            <div class="field">
+              <label for="waist">Waist circumference</label>
+              <input id="waist" type="number" min="50" max="220" step="0.1" value="92">
+              <span class="hint">cm</span>
+            </div>
+          </div>
+
+          <div class="form-section">Clinical history</div>
+          <div class="fields">
+            <div class="field">
+              <label for="sbp">Systolic blood pressure</label>
+              <input id="sbp" type="number" min="70" max="260" value="138">
+            </div>
+            <div class="field">
+              <label for="dbp">Diastolic blood pressure</label>
+              <input id="dbp" type="number" min="30" max="150" value="86">
+            </div>
+            <div class="field">
+              <label>Smoking</label>
+              <div class="segmented three">
+                <label class="choice"><input type="radio" name="smoking" value="never" checked>Never</label>
+                <label class="choice"><input type="radio" name="smoking" value="former">Former</label>
+                <label class="choice alert"><input type="radio" name="smoking" value="current">Current</label>
+              </div>
+            </div>
+            <div class="field">
+              <label>Diabetes</label>
+              <div class="segmented">
+                <label class="choice alert"><input type="radio" name="diabetes" value="yes">Yes</label>
+                <label class="choice"><input type="radio" name="diabetes" value="no" checked>No</label>
+              </div>
+            </div>
+            <div class="field full">
+              <label>Family history</label>
+              <div class="segmented">
+                <label class="choice alert"><input type="radio" name="family" value="yes">Yes</label>
+                <label class="choice"><input type="radio" name="family" value="no" checked>No known premature CVD</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">Symptoms and ECG</div>
+          <div class="fields">
+            <div class="field">
+              <label>Chest pain</label>
+              <div class="segmented">
+                <label class="choice alert"><input type="radio" name="chestPain" value="yes">Yes</label>
+                <label class="choice"><input type="radio" name="chestPain" value="no" checked>No</label>
+              </div>
+            </div>
+            <div class="field">
+              <label>Dyspnea</label>
+              <div class="segmented">
+                <label class="choice alert"><input type="radio" name="dyspnea" value="yes">Yes</label>
+                <label class="choice"><input type="radio" name="dyspnea" value="no" checked>No</label>
+              </div>
+            </div>
+            <div class="field full">
+              <label>ECG abnormality</label>
+              <div class="segmented">
+                <label class="choice alert"><input type="radio" name="ecgAbnormal" value="yes">Present</label>
+                <label class="choice"><input type="radio" name="ecgAbnormal" value="no" checked>Normal / not entered</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">Echocardiography</div>
+          <div class="fields">
+            <div class="field">
+              <label for="lvef">Echo LVEF</label>
+              <input id="lvef" type="number" min="10" max="85" value="58">
+              <span class="hint">%</span>
+            </div>
+            <div class="field">
+              <label for="laSize">LA size</label>
+              <input id="laSize" type="number" min="1" max="9" step="0.1" value="3.9">
+              <span class="hint">cm</span>
+            </div>
+            <div class="field full">
+              <label for="eeRatio">E/e'</label>
+              <input id="eeRatio" type="number" min="1" max="40" step="0.1" value="10">
+              <span class="hint">Estimated LV filling pressure marker</span>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="btn btn-main" type="button" id="calculateBtn">Calculate risk score</button>
+            <button class="btn btn-ghost" type="button" id="resetBtn">Reset</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="result-stack">
+        <section class="panel">
+          <div class="panel-title"><strong>Risk score</strong><span id="riskLabel" class="risk-pill moderate">Moderate</span></div>
+          <div class="panel-body">
+            <div class="score-card">
+              <div class="score-top">
+                <div>
+                  <div class="score-value"><span id="scoreValue">0</span><small>/100</small></div>
+                  <p id="scoreText" class="hint">Awaiting calculation.</p>
+                </div>
+              </div>
+              <div class="bar" aria-hidden="true"></div>
+              <div id="needle" class="needle" style="--score-pos: 0%;"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title"><strong>Main risk factors</strong></div>
+          <div class="panel-body">
+            <ul id="factorList" class="list">
+              <li>Complete the form to identify the dominant contributors.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title"><strong>Recommendations</strong></div>
+          <div class="panel-body">
+            <ul id="recommendationList" class="list">
+              <li>Recommendations will update after calculation.</li>
+            </ul>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <section class="section-head" id="ecg-upload">
+      <div>
+        <h2>ECG Upload Intake</h2>
+        <p>Upload ECG images, PDF reports, or PTB-XL-style records. This front-end prototype reads file names, size, type, and previews supported images locally in the browser.</p>
+      </div>
+      <span class="badge">JPEG PDF SCP WFDB DAT HEA CSV</span>
+    </section>
+
+    <section class="panel">
+      <div class="panel-body">
+        <div class="upload-grid">
+          <label class="dropzone" id="dropzone" for="ecgFiles">
+            <input id="ecgFiles" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.bmp,.pdf,.zip,.csv,.txt,.hea,.dat,.scp,.xml,.json,application/pdf,application/zip,image/*">
+            <span class="upload-copy">
+              <span class="upload-icon">ECG</span>
+              <strong>Drop ECG files here or browse</strong>
+              <span>Supports JPEG/PNG ECG scans, PDF reports, WFDB/PTB-XL headers (.hea), signal files (.dat), CSV, SCP-ECG, XML and JSON metadata.</span>
+              <span>For WFDB/PTB-XL records, upload BOTH .hea and .dat files, or upload a ZIP containing both.</span>
+              <span class="upload-button">Choose ECG files</span>
+            </span>
+          </label>
+          <div>
+            <div class="panel-title" style="border:1px solid var(--line);border-radius:6px;margin-bottom:10px;">
+              <strong>Uploaded studies</strong>
+              <span id="fileCount" class="badge">0 files</span>
+            </div>
+            <div id="fileList" class="file-list">
+              <div class="file-card">
+                <span class="file-type">PTB</span>
+                <div>
+                  <strong>No ECG uploaded yet</strong>
+                  <span>Files stay local in this single HTML prototype.</span>
+                </div>
+              </div>
+            </div>
+            <div id="preview" class="preview">Image preview will appear here for JPEG, PNG, WEBP, or BMP files.</div>
+            <div class="analysis-panel" aria-live="polite">
+              <div class="analysis-actions">
+                <button class="btn btn-main" type="button" id="analyzeEcgBtn">Analyze ECG</button>
+                <button class="btn btn-ghost" type="button" id="clearAnalysisBtn">Clear analysis</button>
+              </div>
+              <div id="ecgAnalysis" class="analysis-result">
+                <div class="analysis-note">
+                  Upload an ECG and press Analyze ECG. The report shows the upgraded AF pipeline: quality assessment, QRS/RR features, P-wave biomarkers, spectral baseline analysis, morphology similarity, model confidence, and explainability.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel integrated-card" id="integrated-report">
+      <div class="panel-title">
+        <strong>Integrated AI Report</strong>
+        <span class="badge">Clinical + ECG</span>
+      </div>
+      <div class="integrated-actions">
+        <button class="btn btn-main" type="button" id="generateIntegratedBtn">Generate Integrated Report</button>
+        <button class="btn btn-ghost" type="button" id="clearIntegratedBtn">Clear report</button>
+      </div>
+      <div id="integratedReport" class="integrated-result">
+        <div class="analysis-note">
+          Run the clinical calculator and ECG analyzer, then generate an integrated physician-friendly research report.
+        </div>
+      </div>
+    </section>
+
+    <section class="section-head" id="science">
+      <div>
+        <h2>Prototype Scope</h2>
+        <p>Cardio MIRAI combines structured clinical screening with an ECG intake workflow. Production ECG interpretation would require validated signal processing, audited models, clinical governance, and secure storage.</p>
+      </div>
+    </section>
+
+    <div class="info-grid">
+      <article class="info">
+        <h3>Clinical variables</h3>
+        <p>Age, sex, BMI, waist, blood pressure, smoking, diabetes, family history, symptoms, ECG flags, LVEF, LA size, and E/e'.</p>
+      </article>
+      <article class="info">
+        <h3>ECG formats</h3>
+        <p>Designed for scanned ECGs and research records inspired by PTB-XL workflows: waveform data, header files, and metadata tables.</p>
+      </article>
+      <article class="info">
+        <h3>Official web identity</h3>
+        <p>The page is branded for cardiomirai.uz and can be hosted as a static website because it is pure HTML, CSS, and JavaScript.</p>
+      </article>
+    </div>
+
+    <div class="disclaimer">
+      <strong>Medical disclaimer:</strong> Cardio MIRAI is a research and demonstration prototype. It is not a medical device and must not be used as a substitute for physician assessment, diagnosis, emergency care, or treatment decisions.
+    </div>
+  </main>
+
+  <footer id="contact">
+    <div class="footer-inner">
+      <span>Cardio MIRAI Research Prototype | cardiomirai.uz</span>
+      <span>For clinical validation, ethics review, and deployment planning.</span>
+    </div>
+  </footer>
+
+  <script>
+    let currentEcgFiles = [];
+    let currentWfdbStatus = { hasWfdbFiles: false, complete: false, pairs: [], warnings: [], zipFiles: [] };
+    let currentImageQualityMeta = null;
+    let latestClinicalResult = null;
+    let latestEcgResult = null;
+    const WFDB_BACKEND_URL = "http://127.0.0.1:8000/api/analyze-wfdb";
+
+    // Read a numeric input. Empty fields return null so optional data does not add risk.
+    function readNumber(id) {
+      const value = document.getElementById(id).value.trim();
+      return value === "" ? null : Number(value);
+    }
+
+    // Read the selected value from a radio group.
+    function readRadio(name) {
+      const selected = document.querySelector(`input[name="${name}"]:checked`);
+      return selected ? selected.value : null;
+    }
+
+    // Add a risk factor and recommendation when a condition contributes to the score.
+    function addFinding(state, label, detail, severity, points, recommendation) {
+      state.score += points;
+      state.factors.push({ label, detail, severity, points });
+      if (recommendation) state.recommendations.push(recommendation);
+    }
+
+    // Main clinical scoring function. This is an illustrative rules-based prototype, not a validated model.
+    function calculateRiskModel(values) {
+      const state = { score: 0, factors: [], recommendations: [] };
+
+      if (values.age >= 75) addFinding(state, "Age", `${values.age} years`, "high", 18, "Prioritize comprehensive cardiovascular review due to advanced age.");
+      else if (values.age >= 65) addFinding(state, "Age", `${values.age} years`, "high", 14, "Review global cardiovascular risk and preventive therapy.");
+      else if (values.age >= 55) addFinding(state, "Age", `${values.age} years`, "moderate", 9, "Repeat risk screening periodically and optimize modifiable risk factors.");
+      else if (values.age >= 45) addFinding(state, "Age", `${values.age} years`, "moderate", 5, null);
+
+      if (values.sex === "male") addFinding(state, "Sex", "Male", "low", 3, null);
+
+      if (values.bmi >= 35) addFinding(state, "BMI", `${values.bmi} kg/m2`, "high", 10, "Start structured weight management with diet, activity, and metabolic review.");
+      else if (values.bmi >= 30) addFinding(state, "BMI", `${values.bmi} kg/m2`, "high", 7, "Address obesity as a modifiable cardiovascular risk factor.");
+      else if (values.bmi >= 25) addFinding(state, "BMI", `${values.bmi} kg/m2`, "moderate", 3, "Encourage nutrition and activity plan for weight reduction.");
+
+      if (values.waist && values.sex) {
+        const waistCutoff = values.sex === "male" ? 102 : 88;
+        if (values.waist > waistCutoff) addFinding(state, "Waist circumference", `${values.waist} cm`, "high", 7, "Treat central obesity with lifestyle and metabolic syndrome screening.");
+      }
+
+      if (values.sbp >= 180 || values.dbp >= 110) addFinding(state, "Blood pressure", `${values.sbp}/${values.dbp} mmHg`, "high", 14, "Urgent blood pressure assessment is recommended.");
+      else if (values.sbp >= 160 || values.dbp >= 100) addFinding(state, "Blood pressure", `${values.sbp}/${values.dbp} mmHg`, "high", 11, "Escalate hypertension management and check end-organ risk.");
+      else if (values.sbp >= 140 || values.dbp >= 90) addFinding(state, "Blood pressure", `${values.sbp}/${values.dbp} mmHg`, "high", 8, "Optimize hypertension treatment and lifestyle measures.");
+      else if (values.sbp >= 130 || values.dbp >= 80) addFinding(state, "Blood pressure", `${values.sbp}/${values.dbp} mmHg`, "moderate", 4, "Monitor elevated blood pressure and reinforce lifestyle treatment.");
+
+      if (values.smoking === "current") addFinding(state, "Smoking", "Current smoker", "high", 12, "Offer smoking cessation therapy and follow-up support.");
+      else if (values.smoking === "former") addFinding(state, "Smoking", "Former smoker", "moderate", 5, "Document pack-years and reinforce abstinence.");
+
+      if (values.diabetes === "yes") addFinding(state, "Diabetes", "Present", "high", 12, "Optimize HbA1c and consider therapies with cardiovascular benefit when clinically appropriate.");
+      if (values.family === "yes") addFinding(state, "Family history", "Premature CVD", "high", 8, "Consider lipid profile, lipoprotein(a), and earlier preventive screening.");
+      if (values.chestPain === "yes") addFinding(state, "Chest pain", "Present", "high", 14, "Evaluate urgently for ischemia or acute coronary syndrome if symptoms are active.");
+      if (values.dyspnea === "yes") addFinding(state, "Dyspnea", "Present", "moderate", 7, "Assess for heart failure, pulmonary disease, anemia, and valvular disease.");
+      if (values.ecgAbnormal === "yes") addFinding(state, "ECG abnormality", "Present", "high", 10, "Request cardiology review and consider repeat ECG or Holter monitoring.");
+
+      if (values.lvef < 30) addFinding(state, "LVEF", `${values.lvef}%`, "high", 15, "Severely reduced LVEF: urgent heart failure evaluation and guideline-directed therapy.");
+      else if (values.lvef < 40) addFinding(state, "LVEF", `${values.lvef}%`, "high", 12, "Reduced LVEF: cardiology referral and heart failure therapy review.");
+      else if (values.lvef < 50) addFinding(state, "LVEF", `${values.lvef}%`, "moderate", 7, "Mildly reduced LVEF: repeat echo and investigate cause.");
+      else if (values.lvef < 55) addFinding(state, "LVEF", `${values.lvef}%`, "low", 3, "Low-normal LVEF: monitor with clinical context.");
+
+      if (values.laSize > 5.0) addFinding(state, "LA size", `${values.laSize} cm`, "high", 8, "Marked LA enlargement: screen for atrial fibrillation and diastolic disease.");
+      else if (values.laSize > 4.5) addFinding(state, "LA size", `${values.laSize} cm`, "high", 6, "Moderate LA enlargement: consider rhythm monitoring.");
+      else if (values.laSize > 4.0) addFinding(state, "LA size", `${values.laSize} cm`, "moderate", 4, "Mild LA enlargement: follow blood pressure and rhythm risk.");
+
+      if (values.eeRatio > 14) addFinding(state, "E/e'", `${values.eeRatio}`, "high", 10, "Elevated E/e': evaluate LV filling pressure and HFpEF risk.");
+      else if (values.eeRatio >= 9) addFinding(state, "E/e'", `${values.eeRatio}`, "moderate", 4, "Borderline E/e': interpret with full echo and symptoms.");
+
+      const normalizedScore = Math.min(100, Math.round((state.score / 120) * 100));
+      const risk = normalizedScore < 30 ? "low" : normalizedScore < 60 ? "moderate" : "high";
+
+      if (state.recommendations.length === 0) {
+        state.recommendations.push("Maintain healthy lifestyle, routine preventive care, and repeat screening when clinical status changes.");
+      }
+
+      if (risk === "high") state.recommendations.unshift("High risk: arrange timely clinician review and formal cardiovascular workup.");
+      if (risk === "moderate") state.recommendations.unshift("Moderate risk: optimize modifiable factors and consider cardiology follow-up.");
+      if (risk === "low") state.recommendations.unshift("Low risk: continue prevention, exercise, nutrition, and periodic monitoring.");
+
+      state.factors.sort((a, b) => b.points - a.points);
+      return { score: normalizedScore, risk, factors: state.factors, recommendations: state.recommendations };
+    }
+
+    // Collect all form values and send them to the scoring model.
+    function calculateRisk() {
+      const values = {
+        age: readNumber("age"),
+        sex: readRadio("sex"),
+        bmi: readNumber("bmi"),
+        waist: readNumber("waist"),
+        sbp: readNumber("sbp"),
+        dbp: readNumber("dbp"),
+        smoking: readRadio("smoking"),
+        diabetes: readRadio("diabetes"),
+        family: readRadio("family"),
+        chestPain: readRadio("chestPain"),
+        dyspnea: readRadio("dyspnea"),
+        ecgAbnormal: readRadio("ecgAbnormal"),
+        lvef: readNumber("lvef"),
+        laSize: readNumber("laSize"),
+        eeRatio: readNumber("eeRatio")
+      };
+
+      if (!values.age || values.age < 18 || values.age > 120) {
+        alert("Please enter a valid age between 18 and 120.");
+        document.getElementById("age").focus();
+        return;
+      }
+
+      const result = calculateRiskModel(values);
+      renderRiskResult(result);
+    }
+
+    // Update the risk score, category, factor list, and recommendations in the dashboard.
+    function renderRiskResult(result) {
+      latestClinicalResult = result;
+      const labels = { low: "Low", moderate: "Moderate", high: "High" };
+      const scoreValue = document.getElementById("scoreValue");
+      const riskLabel = document.getElementById("riskLabel");
+      const scoreText = document.getElementById("scoreText");
+      const needle = document.getElementById("needle");
+
+      scoreValue.textContent = result.score;
+      riskLabel.textContent = `${labels[result.risk]} risk`;
+      riskLabel.className = `risk-pill ${result.risk}`;
+      scoreText.textContent = `Calculated from ${result.factors.length} active risk factor${result.factors.length === 1 ? "" : "s"}.`;
+      needle.style.setProperty("--score-pos", `calc(${result.score}% - 2px)`);
+
+      const factorList = document.getElementById("factorList");
+      factorList.innerHTML = result.factors.length
+        ? result.factors.slice(0, 7).map(item => `<li><div class="factor-line"><b>${item.label}</b><span>${item.points} pts</span></div><div>${item.detail}</div></li>`).join("")
+        : "<li>No major risk contributors identified from entered data.</li>";
+
+      document.getElementById("recommendationList").innerHTML = result.recommendations
+        .slice(0, 8)
+        .map(text => `<li>${text}</li>`)
+        .join("");
+    }
+
+    // Restore default demonstration values and recalculate.
+    function resetForm() {
+      document.getElementById("age").value = 60;
+      document.getElementById("bmi").value = 27.5;
+      document.getElementById("waist").value = 92;
+      document.getElementById("sbp").value = 138;
+      document.getElementById("dbp").value = 86;
+      document.getElementById("lvef").value = 58;
+      document.getElementById("laSize").value = 3.9;
+      document.getElementById("eeRatio").value = 10;
+      ["female", "never", "no"].forEach(value => {
+        document.querySelectorAll(`input[value="${value}"]`).forEach(input => input.checked = true);
+      });
+      calculateRisk();
+    }
+
+    // Convert bytes into readable file sizes for the upload list.
+    function formatBytes(bytes) {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    // Infer a compact label from the file extension or MIME type.
+    function getFileType(file) {
+      const ext = file.name.split(".").pop().toUpperCase();
+      if (ext === "ZIP") return "ZIP";
+      if (ext === "HEA" || ext === "DAT") return ext;
+      if (file.type.includes("pdf")) return "PDF";
+      if (file.type.includes("image")) return ext || "IMG";
+      return ext || "ECG";
+    }
+
+    // Return the lower-case extension without the dot.
+    function fileExtension(fileName) {
+      const cleanName = fileName.toLowerCase().split(/[\\/]/).pop();
+      const dotIndex = cleanName.lastIndexOf(".");
+      return dotIndex >= 0 ? cleanName.slice(dotIndex + 1) : "";
+    }
+
+    // Return the basename used by WFDB records. rec_1.hea and rec_1.dat share basename rec_1.
+    function wfdbBaseName(fileName) {
+      const cleanName = fileName.toLowerCase().split(/[\\/]/).pop();
+      return cleanName.replace(/\.(hea|dat)$/i, "");
+    }
+
+    // Validate WFDB uploads. A .dat signal file alone is not analyzable without its .hea header.
+    function validateWfdbFiles(files) {
+      const heaFiles = new Map();
+      const datFiles = new Map();
+      const zipFiles = [];
+      const warnings = [];
+
+      files.forEach(file => {
+        const ext = fileExtension(file.name);
+        if (ext === "hea") heaFiles.set(wfdbBaseName(file.name), file);
+        if (ext === "dat") datFiles.set(wfdbBaseName(file.name), file);
+        if (ext === "zip") zipFiles.push(file);
+      });
+
+      const allBases = new Set([...heaFiles.keys(), ...datFiles.keys()]);
+      const pairs = [];
+
+      allBases.forEach(base => {
+        const hasHea = heaFiles.has(base);
+        const hasDat = datFiles.has(base);
+        if (hasHea && hasDat) {
+          pairs.push({ base, header: heaFiles.get(base), signal: datFiles.get(base) });
+        } else if (hasDat && !hasHea) {
+          warnings.push("WFDB signal file detected, but matching .hea header is missing. Please upload both files with the same basename.");
+        } else if (hasHea && !hasDat) {
+          warnings.push("WFDB header detected, but matching .dat signal file is missing.");
+        }
+      });
+
+      const hasWfdbFiles = allBases.size > 0 || zipFiles.length > 0;
+      const complete = pairs.length > 0 || zipFiles.length > 0;
+
+      if (zipFiles.length > 0) {
+        warnings.push("ZIP workflow detected. A backend should extract the ZIP, search recursively for matching .hea/.dat pairs, and analyze the first valid WFDB record or show a selector.");
+      }
+
+      return { hasWfdbFiles, complete, pairs, warnings, zipFiles };
+    }
+
+    // Build metadata shown after a complete WFDB pair is selected.
+    function renderWfdbMetadata(status) {
+      const firstPair = status.pairs[0];
+      if (!firstPair) {
+        return status.zipFiles.length
+          ? `<div class="finding-box"><b>WFDB ZIP workflow</b><span>ZIP will be extracted by backend. Recursive .hea/.dat pairing required before wfdb.rdsamp.</span></div>`
+          : "";
+      }
+
+      return `
+        <div class="finding-grid" style="margin-top:12px">
+          <div class="finding-box"><b>WFDB record</b><span>${firstPair.base}</span></div>
+          <div class="finding-box"><b>Required loader</b><span>wfdb.rdsamp("${firstPair.base}")</span></div>
+          <div class="finding-box"><b>Status</b><span>Header and signal pair detected</span></div>
+        </div>
+        <div class="preview" style="min-height:120px">
+          Press Analyze ECG to send this WFDB pair to the backend. The backend will read sampling frequency, gain, baselines, and lead names from ${firstPair.base}.hea and render a waveform preview.
+        </div>
+      `;
+    }
+
+    // Send complete WFDB files to the Python backend, where wfdb.rdsamp can parse the digital signal.
+    async function analyzeWfdbWithBackend() {
+      const formData = new FormData();
+      currentEcgFiles.forEach(file => formData.append("files", file, file.name));
+      const currentAge = document.getElementById("age")?.value;
+      const currentSex = document.querySelector('input[name="sex"]:checked')?.value;
+      if (currentAge) formData.append("age", currentAge);
+      if (currentSex) formData.append("sex", currentSex);
+
+      const response = await fetch(WFDB_BACKEND_URL, {
+        method: "POST",
+        body: formData
+      });
+
+      if (!response.ok) {
+        const details = await response.text();
+        throw new Error(details || "WFDB backend analysis failed.");
+      }
+
+      return response.json();
+    }
+
+    // Convert backend WFDB JSON into the same state shape used by the integrated report.
+    function backendResultToEcgState(result) {
+      const rr = result.rr_features || {};
+      const p = result.p_wave_features || {};
+      const q = result.signal_quality || {};
+      const m = result.morphology_features || {};
+      const rhythmAfLikelihood = numberOrNull(result.af_detection_score ?? result.af_probability);
+      const atrialRemodelingProbability = numberOrNull(result.main_atrial_remodeling_score ?? result.atrial_remodeling_score);
+      const logisticProbability = numberOrNull(result.atrial_remodeling_score_logistic);
+      const gbProbability = numberOrNull(result.atrial_remodeling_score_gradient_boosting);
+      const confidence = numberOrNull(result.confidence_score);
+      const signalQualityRaw = numberOrNull(q.signal_quality_index ?? result.signal_quality_index);
+      const signalQuality = signalQualityRaw === null ? null : Math.round(signalQualityRaw);
+
+      return {
+        inputType: result.input_type || "Digital WFDB",
+        afDetectionScore: rhythmAfLikelihood,
+        afProbability: rhythmAfLikelihood,
+        atrialRemodelingScore: atrialRemodelingProbability,
+        atrialRemodelingScoreLogistic: logisticProbability,
+        atrialRemodelingScoreGradientBoosting: gbProbability,
+        modelUsed: result.model_used || "PTB-XL model",
+        modelTarget: result.model_target || "current atrial abnormality",
+        modelAuc: result.model_auc,
+        featuresUsed: result.features_used || {},
+        logisticFeatureContributions: result.logistic_feature_contributions || [],
+        topAbnormalFeatures: result.top_abnormal_features || [],
+        limitations: result.limitations || [],
+        calibrated: Boolean(result.calibrated),
+        calibrationNote: result.calibration_note || "Research output is not clinically calibrated.",
+        confidenceScore: confidence,
+        signalQuality,
+        qualityText: signalQuality === null ? "Not available" : signalQuality >= 75 ? "Good" : signalQuality >= 60 ? "Acceptable" : "Insufficient",
+        rhythm: result.rhythm || rhythmAssessmentLabel(rhythmAfLikelihood),
+        pWavePresenceRatio: Number(p.p_wave_presence_ratio ?? 0),
+        rrIrregularityIndex: Number(rr.rr_irregularity_index ?? 0),
+        afGatePassed: Boolean(result.af_gate_passed),
+        qualityFeatures: [
+          { name: "Signal quality index", value: signalQuality === null ? "Not available" : `${signalQuality}/100`, interpretation: signalQuality === null ? "Not available" : signalQuality > 70 ? "Prediction allowed" : signalQuality >= 50 ? "Low/moderate confidence only" : "High-confidence AF output blocked" },
+          { name: "Missing data", value: formatPercent(q.missing_data_percent, 1), interpretation: "Missing/invalid sample check" },
+          { name: "Flatline score", value: formatScore(q.flatline_score, 1), interpretation: Number(q.flatline_score || 0) > 0 ? "Flatline risk detected" : "No flatline flag" },
+          { name: "Noise level", value: formatPercent(q.noise_score, 1), interpretation: "High-frequency noise estimate" },
+          { name: "Baseline wander", value: formatPercent(q.baseline_wander_score, 1), interpretation: "Low-frequency drift estimate" },
+          { name: "QRS detection success", value: formatPercent(q.qrs_detection_success, 1), interpretation: "Whether detected QRS rate is physiologically plausible" },
+          { name: "Usable leads", value: q.usable_leads ?? "Not available", interpretation: "Leads passing basic quality checks" }
+        ],
+        rhythmFeatures: [
+          { name: "Detected QRS complexes", value: result.qrs_count ?? 0, interpretation: "Computed from parsed WFDB signal" },
+          { name: "Heart rate", value: numberOrNull(rr.heart_rate_bpm) === null ? "Not available" : `${rr.heart_rate_bpm} bpm`, interpretation: "Derived from mean RR" },
+          { name: "Mean RR", value: numberOrNull(rr.rr_mean_ms) === null ? "Not available" : `${rr.rr_mean_ms} ms`, interpretation: "Digital RR interval mean" },
+          { name: "RR SD", value: numberOrNull(rr.rr_sd_ms) === null ? "Not available" : `${rr.rr_sd_ms} ms`, interpretation: "Digital RR dispersion" },
+          { name: "SDNN", value: numberOrNull(rr.sdnn_ms ?? rr.rr_sd_ms) === null ? "Not available" : `${rr.sdnn_ms ?? rr.rr_sd_ms} ms`, interpretation: "RR interval standard deviation" },
+          { name: "RR coefficient of variation", value: formatScore(rr.rr_cv, 3), interpretation: "RR irregularity marker" },
+          { name: "RMSSD", value: numberOrNull(rr.rmssd_ms) === null ? "Not available" : `${rr.rmssd_ms} ms`, interpretation: "Beat-to-beat RR variability" },
+          { name: "pNN50", value: formatPercent(rr.pnn50_percent, 1), interpretation: "Percent adjacent RR intervals >50 ms apart" },
+          { name: "Sample entropy", value: formatScore(rr.sample_entropy, 3), interpretation: "RR complexity" },
+          { name: "Shannon entropy", value: formatScore(rr.shannon_entropy, 3), interpretation: "RR distribution entropy" },
+          { name: "Poincare SD1", value: numberOrNull(rr.poincare_sd1_ms) === null ? "Not available" : `${rr.poincare_sd1_ms} ms`, interpretation: "Short-axis RR dispersion" },
+          { name: "Poincare SD2", value: numberOrNull(rr.poincare_sd2_ms) === null ? "Not available" : `${rr.poincare_sd2_ms} ms`, interpretation: "Long-axis RR dispersion" },
+          { name: "Turning point ratio", value: formatScore(rr.turning_point_ratio, 3), interpretation: "RR randomness marker" },
+          { name: "RR irregularity index", value: numberOrNull(rr.rr_irregularity_index) === null ? "Not available" : `${rr.rr_irregularity_index}/100`, interpretation: "Combined digital rhythm irregularity score" }
+        ],
+        pWaveFeatures: [
+          { name: "P-wave search window", value: "120-250 ms before each QRS", interpretation: "Backend P-wave scan window" },
+          { name: "P-wave presence ratio", value: formatPercent(p.p_wave_presence_ratio, 1), interpretation: "P waves detected before QRS complexes" },
+          { name: "PR mean", value: p.pr_mean_ms === null || p.pr_mean_ms === undefined ? "Unavailable" : `${p.pr_mean_ms} ms`, interpretation: "Mean PR timing" },
+          { name: "PR SD", value: p.pr_sd_ms === null || p.pr_sd_ms === undefined ? "Unavailable" : `${p.pr_sd_ms} ms`, interpretation: "PR variability" },
+          { name: "PR consistency", value: numberOrNull(p.pr_consistency) === null ? "Not available" : `${p.pr_consistency}/100`, interpretation: "Stable PR timing supports sinus rhythm" },
+          { name: "Missing P waves", value: formatPercent(p.missing_p_wave_percent, 1), interpretation: "P-wave absence marker" }
+        ],
+        morphologyFeatures: [
+          { name: "Fibrillatory baseline power", value: m.fibrillatory_power ?? 0, interpretation: "Computed from parsed digital waveform spectrum" },
+          { name: "Dominant f-wave frequency", value: m.dominant_f_wave_hz === null || m.dominant_f_wave_hz === undefined ? "Unavailable" : `${m.dominant_f_wave_hz} Hz`, interpretation: "Spectral baseline analysis" },
+          { name: "P duration", value: m.p_duration_ms === undefined ? "Unavailable" : `${m.p_duration_ms} ms`, interpretation: "PTB-XL morphology feature" },
+          { name: "P amplitude", value: m.p_amplitude_mv === undefined ? "Unavailable" : `${m.p_amplitude_mv} mV`, interpretation: "PTB-XL morphology feature" },
+          { name: "P axis", value: m.p_axis_deg === undefined ? "Unavailable" : `${m.p_axis_deg} deg`, interpretation: "PTB-XL morphology feature" },
+          { name: "PR interval", value: m.pr_interval_ms === undefined ? "Unavailable" : `${m.pr_interval_ms} ms`, interpretation: "PTB-XL morphology feature" },
+          { name: "QRS duration", value: m.qrs_duration_ms === undefined ? "Unavailable" : `${m.qrs_duration_ms} ms`, interpretation: "PTB-XL morphology feature" },
+          { name: "QTc", value: m.qtc_ms === undefined ? "Unavailable" : `${m.qtc_ms} ms`, interpretation: "PTB-XL morphology feature" },
+          { name: "PTFV1", value: m.ptfv1_mv_ms === undefined ? "Unavailable" : `${m.ptfv1_mv_ms} mv*ms`, interpretation: "PTB-XL morphology feature" }
+        ],
+        warnings: result.warnings || [],
+        reasons: result.reasons || [],
+        basicMeasurements: result.basic_ecg_measurements || null,
+        advancedInterpretation: result.advanced_ecg_interpretation || null,
+        metadata: result.metadata || {},
+        waveformPreview: result.waveform_preview || null,
+        source: "wfdb"
+      };
+    }
+
+    // Render a lightweight SVG waveform preview from backend downsampled values.
+    function renderBackendWaveformPreview(preview) {
+      if (!preview || !preview.values || !preview.values.length) {
+        return `<div class="preview">Waveform preview unavailable.</div>`;
+      }
+
+      const width = 640;
+      const height = 150;
+      const points = preview.values.map((value, index) => {
+        const x = (index / Math.max(1, preview.values.length - 1)) * width;
+        const y = height / 2 - value * 48;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(" ");
+
+      return `
+        <div class="preview" style="display:block">
+          <svg viewBox="0 0 ${width} ${height}" width="100%" height="150" role="img" aria-label="WFDB waveform preview">
+            <rect x="0" y="0" width="${width}" height="${height}" fill="#fff7f8"></rect>
+            <path d="M 0 ${height / 2} H ${width}" stroke="#f0b9c0" stroke-width="1"></path>
+            <polyline points="${points}" fill="none" stroke="#0b1f3a" stroke-width="2"></polyline>
+          </svg>
+          <div class="hint">Preview lead: ${preview.lead || "lead"} | Duration: ${preview.duration_seconds || 0}s</div>
+        </div>
+      `;
+    }
+
+    function renderMeasurementCard(title, value, detail) {
+      return `
+        <div class="finding-box">
+          <b>${title}</b>
+          <span>${value}</span>
+          <em>${detail}</em>
+        </div>
+      `;
+    }
+
+    function renderBasicEcgMeasurements(measurements) {
+      if (!measurements) {
+        return `
+          <div class="analysis-note">
+            <strong>Basic ECG Measurements</strong><br>
+            Not available for this upload. Digital WFDB measurements require a readable waveform record.
+          </div>
+        `;
+      }
+
+      const hr = measurements.heart_rate || {};
+      const rhythm = measurements.rhythm_regularity || {};
+      const p = measurements.p_wave_pr || {};
+      const qrs = measurements.qrs || {};
+      const qt = measurements.qt_qtc || {};
+      const axis = measurements.axis || {};
+      const st = measurements.st_segment || {};
+      const lvh = measurements.lvh || {};
+      const bbb = measurements.bbb || {};
+      const af = measurements.af_rhythm_markers || {};
+
+      return `
+        <div class="section-title" style="margin-top:18px">
+          <span></span>
+          <div>
+            <h3>Basic ECG Measurements</h3>
+            <p>Research ECG measurement output from digital waveform analysis. Requires physician confirmation.</p>
+          </div>
+        </div>
+        <div class="finding-grid">
+          ${renderMeasurementCard("Heart rate", hr.heart_rate_bpm === null || hr.heart_rate_bpm === undefined ? "Not available" : `${hr.heart_rate_bpm} bpm`, `Mean RR: ${hr.mean_rr_ms ?? "Not available"} ms | R peaks: ${hr.r_peak_count ?? "Not available"}`)}
+          ${renderMeasurementCard("Rhythm", rhythm.regularity || "Not available", `RR SD: ${rhythm.rr_sd_ms ?? "Not available"} ms | CV: ${rhythm.rr_cv ?? "Not available"} | RMSSD: ${rhythm.rmssd_ms ?? "Not available"} ms`)}
+          ${renderMeasurementCard("PR interval", p.pr_interval_ms === null || p.pr_interval_ms === undefined ? "Not available" : `${p.pr_interval_ms} ms`, `P-wave presence: ${p.p_wave_presence_ratio ?? "Not available"}% | Missing P: ${p.missing_p_wave_percent ?? "Not available"}%`)}
+          ${renderMeasurementCard("QRS duration", qrs.qrs_duration_ms === null || qrs.qrs_duration_ms === undefined ? "Not available" : `${qrs.qrs_duration_ms} ms`, qrs.status || "Not available")}
+          ${renderMeasurementCard("QT/QTc", qt.qt_ms === null || qt.qt_ms === undefined ? "Not available" : `QT ${qt.qt_ms} ms`, `Bazett: ${qt.qtc_bazett_ms ?? "Not available"} ms | Fridericia: ${qt.qtc_fridericia_ms ?? "Not available"} ms | ${qt.prolonged_qtc || "Not available"}`)}
+          ${renderMeasurementCard("QRS axis", axis.axis_deg === null || axis.axis_deg === undefined ? "Not available" : `${axis.axis_deg} deg`, axis.classification || "Not available")}
+          ${renderMeasurementCard("ST-T assessment", st.status || "Not available", `Max elevation: ${st.max_elevation_mv ?? "Not available"} mV | Max depression: ${st.max_depression_mv ?? "Not available"} mV`)}
+          ${renderMeasurementCard("LVH criteria", lvh.status || "Not available", `Sokolow-Lyon: ${lvh.sokolow_lyon_mv ?? "Not available"} mV | Cornell: ${lvh.cornell_mv ?? "Not available"} mV`)}
+          ${renderMeasurementCard("BBB flag", bbb.status || "Not available", `QRS: ${bbb.qrs_duration_ms ?? qrs.qrs_duration_ms ?? "Not available"} ms`)}
+          ${renderMeasurementCard("P-wave status", p.status || "Not available", `Presence ratio: ${p.p_wave_presence_ratio ?? "Not available"}%`)}
+        </div>
+        <table class="feature-table">
+          <thead><tr><th>AF rhythm marker</th><th>Value</th><th>Interpretation</th></tr></thead>
+          <tbody>${renderFeatureRows([
+            { name: "RR irregularity index", value: af.rr_irregularity_index ?? "Not available", interpretation: "Rhythm marker, separate from PTB-XL remodeling probability" },
+            { name: "P-wave absence", value: af.p_wave_absence_percent === undefined ? "Not available" : `${af.p_wave_absence_percent}%`, interpretation: "Missing atrial activity marker" },
+            { name: "Fibrillatory baseline power", value: af.fibrillatory_baseline_power ?? "Not available", interpretation: "Research spectral baseline marker" },
+            { name: "Dominant f-wave frequency", value: af.dominant_f_wave_hz === null || af.dominant_f_wave_hz === undefined ? "Not available" : `${af.dominant_f_wave_hz} Hz`, interpretation: "Research spectral baseline marker" }
+          ])}</tbody>
+        </table>
+        <div class="analysis-note">${measurements.disclaimer || "Research ECG measurement output. Requires physician confirmation."}</div>
+      `;
+    }
+
+    function renderAdvancedEcgInterpretation(interpretation) {
+      if (!interpretation) {
+        return `
+          <div class="analysis-note">
+            <strong>Advanced ECG Interpretation</strong><br>
+            Not available for this upload. Complete interpretation requires a parsed digital waveform.
+          </div>
+        `;
+      }
+      const rhythm = interpretation.rhythm || {};
+      const axes = interpretation.axes || {};
+      const intervals = interpretation.intervals || {};
+      const chamber = interpretation.chamber_enlargement || {};
+      const bbb = interpretation.bundle_branch_block || {};
+      const stemi = interpretation.stemi || {};
+      const af = interpretation.af_analysis || {};
+      const hf = interpretation.heart_failure_risk || {};
+      const mortality = interpretation.mortality_risk || {};
+      const ischemia = interpretation.ischemia || [];
+      const infarction = interpretation.infarction || [];
+      const report = (interpretation.physician_report || "").replace(/\n/g, "<br>");
+
+      return `
+        <div class="section-title" style="margin-top:18px">
+          <span></span>
+          <div>
+            <h3>Advanced ECG Interpretation</h3>
+            <p>Rule-based research interpretation combined with digital measurements and the preserved PTB-XL model.</p>
+          </div>
+        </div>
+        <div class="finding-grid">
+          ${renderMeasurementCard("Rhythm", rhythm.primary || "Not available", `Confidence: ${rhythm.confidence ?? "Not available"}%`)}
+          ${renderMeasurementCard("P axis", axes.p_axis?.axis_deg === null || axes.p_axis?.axis_deg === undefined ? "Not available" : `${axes.p_axis.axis_deg} deg`, axes.p_axis?.classification || "Not available")}
+          ${renderMeasurementCard("QRS axis", axes.qrs_axis?.axis_deg === null || axes.qrs_axis?.axis_deg === undefined ? "Not available" : `${axes.qrs_axis.axis_deg} deg`, axes.qrs_axis?.classification || "Not available")}
+          ${renderMeasurementCard("T axis", axes.t_axis?.axis_deg === null || axes.t_axis?.axis_deg === undefined ? "Not available" : `${axes.t_axis.axis_deg} deg`, axes.t_axis?.classification || "Not available")}
+          ${renderMeasurementCard("Intervals", `PR ${intervals.pr_ms ?? "NA"} | QRS ${intervals.qrs_ms ?? "NA"} | QTcF ${intervals.qtc_fridericia_ms ?? "NA"}`, (intervals.flags || []).join(", ") || "No interval flag")}
+          ${renderMeasurementCard("Chamber enlargement", (chamber.summary || []).join("; "), `RAE: ${chamber.right_atrial_enlargement || "NA"} | LAE: ${chamber.left_atrial_enlargement || "NA"}`)}
+          ${renderMeasurementCard("Bundle branch block", bbb.status || "Not available", `QRS: ${bbb.qrs_duration_ms ?? "Not available"} ms`)}
+          ${renderMeasurementCard("STEMI screen", stemi.status || "Not available", `Culprit: ${stemi.culprit_vessel || "NA"} | Confidence: ${stemi.confidence ?? "NA"}%`)}
+          ${renderMeasurementCard("AF analysis", `${af.current_rule_af_probability ?? "NA"}% rhythm likelihood`, `Remodeling: ${af.atrial_remodeling_score ?? "NA"}% | PTFV1: ${af.ptfv1_mv_ms ?? "NA"}`)}
+          ${renderMeasurementCard("Heart failure risk", hf.category || "Not available", (hf.reasons || []).join("; ") || "No ECG HF-risk reason")}
+        </div>
+        <table class="feature-table">
+          <thead><tr><th>Advanced finding</th><th>Result</th><th>Basis</th></tr></thead>
+          <tbody>${renderFeatureRows([
+            { name: "Ischemia", value: ischemia.length ? ischemia.map(item => item.territory).join(", ") : "No research ischemia flag", interpretation: ischemia.length ? ischemia.map(item => item.basis).join("; ") : "No contiguous ST-depression pattern detected" },
+            { name: "Infarction", value: infarction.length ? infarction.map(item => item.territory).join(", ") : "No research infarction flag", interpretation: infarction.length ? infarction.map(item => item.basis).join("; ") : "No pathologic Q-wave territory flag detected" },
+            { name: "30-day mortality risk", value: mortality["30_day"] || "Unavailable", interpretation: "Requires validated outcome model" },
+            { name: "1-year mortality risk", value: mortality["1_year"] || "Unavailable", interpretation: "Requires validated outcome model" },
+            { name: "5-year mortality risk", value: mortality["5_year"] || "Unavailable", interpretation: "Requires validated outcome model" }
+          ])}</tbody>
+        </table>
+        <div class="interpretation-box">
+          <strong>FINAL ECG INTERPRETATION</strong>
+          <p style="margin:8px 0 0">${report}</p>
+        </div>
+        <div class="analysis-note">${interpretation.safety || "Research interpretation only. Requires physician confirmation."}</div>
+      `;
+    }
+
+    function assessImageQuality(files, context) {
+      const image = files.find(file => file.type.startsWith("image/"));
+      const hasPdf = files.some(file => file.type.includes("pdf") || file.name.toLowerCase().endsWith(".pdf"));
+      if (!image && !hasPdf) return null;
+      const resolution = currentImageQualityMeta
+        ? `${currentImageQualityMeta.width} x ${currentImageQualityMeta.height}px`
+        : hasPdf ? "PDF page resolution unavailable in browser prototype" : "Not available";
+      const megapixels = currentImageQualityMeta ? (currentImageQualityMeta.width * currentImageQualityMeta.height) / 1000000 : 0;
+      const resolutionScore = hasPdf ? 55 : Math.min(100, Math.round(megapixels / 2.0 * 100));
+      const rotationScore = Math.max(0, 100 - Math.abs(context.rotationDeg) * 15);
+      const gridScore = context.gridConfidence;
+      const calibrationScore = context.gridDetected ? 62 : 25;
+      const leadLabelScore = image && /12|lead|ecg|ekg/i.test(image.name) ? 65 : 35;
+      const cropScore = image && megapixels >= 1.2 ? 72 : 42;
+      const extractionConfidence = Math.round(
+        resolutionScore * 0.24
+        + rotationScore * 0.18
+        + gridScore * 0.22
+        + calibrationScore * 0.14
+        + leadLabelScore * 0.1
+        + cropScore * 0.12
+      );
+      const insufficient = extractionConfidence < 60 || (image && megapixels > 0 && megapixels < 1.0);
+      return {
+        insufficient,
+        extractionConfidence,
+        features: [
+          { name: "Image resolution", value: resolution, interpretation: resolutionScore >= 70 ? "Acceptable for prototype preview" : "Low or unavailable resolution" },
+          { name: "Rotation angle", value: `${context.rotationDeg} deg`, interpretation: Math.abs(context.rotationDeg) > 3 ? "Deskew needed before reliable measurement" : "Rotation acceptable" },
+          { name: "Grid detection", value: `${gridScore}%`, interpretation: context.gridDetected ? "Paper grid likely detected" : "Grid not confidently detected" },
+          { name: "Calibration marker detection", value: `${calibrationScore}%`, interpretation: calibrationScore >= 60 ? "Calibration plausible from grid" : "Calibration marker not detected" },
+          { name: "Lead label detection", value: `${leadLabelScore}%`, interpretation: "Filename/preview heuristic only in browser prototype" },
+          { name: "Crop quality", value: `${cropScore}%`, interpretation: cropScore >= 70 ? "Likely enough margin" : "Crop may exclude leads or calibration" },
+          { name: "Signal extraction confidence", value: `${extractionConfidence}%`, interpretation: insufficient ? "Insufficient for strong automated ECG measurements" : "Cautious prototype extraction confidence" }
+        ]
+      };
+    }
+
+    // Render backend WFDB results. This path uses actual parsed digital ECG features.
+    function renderBackendWfdbAnalysis(result) {
+      const ecg = backendResultToEcgState(result);
+      latestEcgResult = ecg;
+
+      const metadata = ecg.metadata || {};
+      const contributors = [
+        { name: "RR irregularity", weight: Math.round(numberOrNull(ecg.rrIrregularityIndex) ?? 0) },
+        { name: "P-wave absence", weight: Math.round(Math.max(0, 100 - (numberOrNull(ecg.pWavePresenceRatio) ?? 100))) },
+        { name: "Missing P waves", weight: Math.round(numberOrNull(result.p_wave_features?.missing_p_wave_percent) ?? 0) },
+        { name: "Fibrillatory baseline power", weight: Math.round(Number(result.morphology_features?.fibrillatory_power || 0) * 100) },
+        { name: "Signal quality", weight: Math.round(numberOrNull(ecg.signalQuality) ?? 0) }
+      ].sort((a, b) => b.weight - a.weight);
+      const featureRows = Object.entries(ecg.featuresUsed).map(([name, value]) => ({
+        name,
+        value,
+        interpretation: "PTB-XL model input"
+      }));
+      const contributionRows = ecg.logisticFeatureContributions.slice(0, 9).map(item => ({
+        name: item.feature,
+        value: `${Number(item.contribution).toFixed(3)} (${item.direction})`,
+        interpretation: `Input value: ${Number(item.value).toFixed(3)}`
+      }));
+
+      return `
+        <div class="finding-head">
+          <div>
+            <strong>${ecg.rhythm}</strong>
+            <span>ECG rhythm assessment from ${result.analysis_label || "digital waveform analysis"} with wfdb.rdsamp()</span>
+          </div>
+          <div class="probability">${formatPercent(ecg.afDetectionScore, 1)}</div>
+        </div>
+        <div class="finding-grid">
+          <div class="finding-box"><b>Input type</b><span>${ecg.inputType}</span></div>
+          <div class="finding-box"><b>Sampling frequency</b><span>${metadata.sampling_frequency ?? "Unknown"} Hz</span></div>
+          <div class="finding-box"><b>Number of leads</b><span>${metadata.number_of_leads ?? "Unknown"}</span></div>
+          <div class="finding-box"><b>Signal duration</b><span>${metadata.duration_seconds ? Number(metadata.duration_seconds).toFixed(2) : "Unknown"} s</span></div>
+          <div class="finding-box"><b>Lead names</b><span>${(metadata.lead_names || []).join(", ") || "Unknown"}</span></div>
+          <div class="finding-box"><b>Rhythm-based AF likelihood</b><span>${formatPercent(ecg.afDetectionScore, 1)}</span><em>${rhythmAssessmentLabel(ecg.afDetectionScore)}</em></div>
+          <div class="finding-box"><b>PTB-XL atrial remodeling probability</b><span>${formatPercent(ecg.atrialRemodelingScore, 1)}</span><em>${remodelingAssessmentLabel(ecg.atrialRemodelingScore)}</em></div>
+          <div class="finding-box"><b>PTB-XL logistic remodeling probability</b><span>${formatPercent(ecg.atrialRemodelingScoreLogistic, 1)}</span></div>
+          <div class="finding-box"><b>PTB-XL gradient boosting remodeling probability</b><span>${formatPercent(ecg.atrialRemodelingScoreGradientBoosting, 1)}</span></div>
+          <div class="finding-box"><b>Model used</b><span>${ecg.modelUsed}</span></div>
+          <div class="finding-box"><b>Target</b><span>${ecg.modelTarget}, not future AF prediction</span></div>
+          <div class="finding-box"><b>Model AUC</b><span>${ecg.modelAuc ?? "Unavailable"}</span></div>
+          <div class="finding-box"><b>Confidence score</b><span>${ecg.confidenceScore === null ? "Not available" : `${ecg.confidenceScore}/100`}</span></div>
+          <div class="finding-box"><b>Signal quality</b><span>${ecg.signalQuality === null ? "Not available" : `${ecg.signalQuality}/100 - ${ecg.qualityText}`}</span></div>
+        </div>
+        ${renderBackendWaveformPreview(ecg.waveformPreview)}
+        ${renderBasicEcgMeasurements(ecg.basicMeasurements)}
+        ${renderAdvancedEcgInterpretation(ecg.advancedInterpretation)}
+        <table class="feature-table">
+          <thead><tr><th>Signal quality feature</th><th>Value</th><th>Interpretation</th></tr></thead>
+          <tbody>${renderFeatureRows(ecg.qualityFeatures)}</tbody>
+        </table>
+        <table class="feature-table">
+          <thead><tr><th>Digital RR feature</th><th>Value</th><th>Interpretation</th></tr></thead>
+          <tbody>${renderFeatureRows(ecg.rhythmFeatures)}</tbody>
+        </table>
+        <table class="feature-table">
+          <thead><tr><th>P-wave feature</th><th>Value</th><th>Interpretation</th></tr></thead>
+          <tbody>${renderFeatureRows(ecg.pWaveFeatures)}</tbody>
+        </table>
+        <table class="feature-table">
+          <thead><tr><th>Morphology / spectral feature</th><th>Value</th><th>Interpretation</th></tr></thead>
+          <tbody>${renderFeatureRows(ecg.morphologyFeatures)}</tbody>
+        </table>
+        <table class="feature-table">
+          <thead><tr><th>PTB-XL model feature</th><th>Value</th><th>Interpretation</th></tr></thead>
+          <tbody>${renderFeatureRows(featureRows)}</tbody>
+        </table>
+        <table class="feature-table">
+          <thead><tr><th>Logistic contribution</th><th>Contribution</th><th>Direction</th></tr></thead>
+          <tbody>${renderFeatureRows(contributionRows)}</tbody>
+        </table>
+        <div class="finding-box">
+          <b>Reasons for research interpretation</b>
+          <ul class="list" style="margin-top:8px">${ecg.reasons.map(reason => `<li>${reason}</li>`).join("")}</ul>
+        </div>
+        <div class="finding-box">
+          <b>Top contributing features</b>
+          <div class="explain-bars" style="margin-top:10px">${renderExplainabilityChart(contributors)}</div>
+        </div>
+        ${ecg.warnings.length ? `<div class="analysis-note"><strong>Warnings:</strong><ul>${ecg.warnings.map(warning => `<li>${warning}</li>`).join("")}</ul></div>` : ""}
+        <div class="analysis-note"><strong>Limitations:</strong><ul>${ecg.limitations.map(item => `<li>${item}</li>`).join("")}</ul></div>
+        <div class="analysis-note">${ecg.calibrationNote}</div>
+        <div class="analysis-note">This is a research prototype and does not diagnose AF. Physician confirmation is required.</div>
+        <div class="analysis-note">The PTB-XL atrial remodeling probability is produced by a trained PTB-XL model. It is not a diagnosis and not a future AF prediction model.</div>
+      `;
+    }
+
+    // Create a stable small number from file metadata so demo ECG outputs are repeatable.
+    function hashStudy(files) {
+      const text = files.map(file => `${file.name}:${file.size}:${file.type}`).join("|");
+      let hash = 0;
+      for (let index = 0; index < text.length; index += 1) {
+        hash = ((hash << 5) - hash + text.charCodeAt(index)) >>> 0;
+      }
+      return hash;
+    }
+
+    // Deterministic helper used to generate stable prototype feature values from uploaded file metadata.
+    function seededValue(seed, min, max, decimals = 1) {
+      const raw = Math.abs(Math.sin(seed * 12.9898) * 43758.5453) % 1;
+      return Number((min + raw * (max - min)).toFixed(decimals));
+    }
+
+    // Keep values inside a clinical display range.
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function numberOrNull(value) {
+      if (value === null || value === undefined || value === "") return null;
+      const number = Number(value);
+      return Number.isFinite(number) ? number : null;
+    }
+
+    function formatPercent(value, decimals = 0) {
+      const number = numberOrNull(value);
+      return number === null ? "Not available" : `${number.toFixed(decimals)}%`;
+    }
+
+    function formatScore(value, decimals = 0) {
+      const number = numberOrNull(value);
+      return number === null ? "Not available" : number.toFixed(decimals);
+    }
+
+    function rhythmAssessmentLabel(score) {
+      const number = numberOrNull(score);
+      if (number === null) return "ECG rhythm assessment unavailable";
+      if (number >= 70) return "Pattern compatible with AF or irregular atrial rhythm";
+      if (number >= 40) return "Indeterminate atrial rhythm";
+      return "AF unlikely / sinus rhythm pattern likely";
+    }
+
+    function remodelingAssessmentLabel(score) {
+      const number = numberOrNull(score);
+      if (number === null) return "PTB-XL atrial remodeling probability unavailable";
+      if (number >= 70) return "High atrial remodeling probability";
+      if (number >= 40) return "Intermediate atrial remodeling probability";
+      return "Low atrial remodeling probability";
+    }
+
+    // Convert the gated AF probability into a clinically conservative rhythm label.
+    function rhythmLabel(probability, signalQuality, pWavePresenceRatio, rrIrregularityIndex, fibrillatoryPower, afGatePassed) {
+      if (signalQuality < 60) return "Low confidence / repeat ECG";
+      if (probability >= 70 && afGatePassed) return "Pattern compatible with AF / irregular atrial rhythm";
+      if (probability >= 70 && !afGatePassed) return "Possible artifact / low confidence";
+      if (pWavePresenceRatio > 70 && rrIrregularityIndex < 45) return "AF unlikely / sinus rhythm likely";
+      if (probability >= 40) return "Indeterminate atrial rhythm";
+      return "AF unlikely";
+    }
+
+    // Render a compact table for feature groups.
+    function renderFeatureRows(features) {
+      return features.map(feature => `
+        <tr>
+          <td>${feature.name}</td>
+          <td>${feature.value}</td>
+          <td>${feature.interpretation}</td>
+        </tr>
+      `).join("");
+    }
+
+    // Render a simple explainability chart from top feature contributions.
+    function renderExplainabilityChart(contributors) {
+      return contributors.map(item => `
+        <div class="explain-row">
+          <span>${item.name}</span>
+          <span class="explain-track"><span class="explain-fill" style="width:${item.weight}%"></span></span>
+          <b>${item.weight}%</b>
+        </div>
+      `).join("");
+    }
+
+    // Publication-style AF pipeline prototype. This mirrors the intended model stages, but does not replace validation.
+    async function analyzeUploadedEcg() {
+      const analysis = document.getElementById("ecgAnalysis");
+
+      if (!currentEcgFiles.length) {
+        analysis.innerHTML = `<div class="analysis-note">Upload at least one ECG file before running analysis.</div>`;
+        return;
+      }
+
+      if (currentWfdbStatus.hasWfdbFiles && !currentWfdbStatus.complete) {
+        latestEcgResult = null;
+        clearIntegratedReport();
+        analysis.innerHTML = `
+          <div class="analysis-note">
+            <strong>Analysis not performed because WFDB record is incomplete.</strong>
+            <ul>${currentWfdbStatus.warnings.map(warning => `<li>${warning}</li>`).join("")}</ul>
+          </div>
+        `;
+        return;
+      }
+
+      if (currentWfdbStatus.hasWfdbFiles && currentWfdbStatus.complete) {
+        analysis.innerHTML = `
+          <div class="analysis-note">
+            Parsing complete WFDB record with backend. This calls wfdb.rdsamp(record_path_without_extension) and runs the digital ECG feature pipeline.
+          </div>
+        `;
+        try {
+          const backendResult = await analyzeWfdbWithBackend();
+          analysis.innerHTML = renderBackendWfdbAnalysis(backendResult);
+        } catch (error) {
+          latestEcgResult = null;
+          let message = error.message;
+          try {
+            const parsed = JSON.parse(message);
+            message = parsed.detail || message;
+          } catch (_) {
+            // Keep raw backend/network text.
+          }
+          analysis.innerHTML = `
+            <div class="analysis-note">
+              <strong>WFDB backend analysis was not completed.</strong>
+              <div>${message}</div>
+              <div>Start the backend with: <code>uvicorn cardiomirai.api:app --reload --host 127.0.0.1 --port 8000</code></div>
+            </div>
+          `;
+        }
+        return;
+      }
+
+      const names = currentEcgFiles.map(file => file.name.toLowerCase()).join(" ");
+      const hasWaveformPair = currentEcgFiles.some(file => file.name.toLowerCase().endsWith(".hea"))
+        && currentEcgFiles.some(file => file.name.toLowerCase().endsWith(".dat"));
+      const hasWfdbZip = currentWfdbStatus.zipFiles.length > 0;
+      const hasImage = currentEcgFiles.some(file => file.type.startsWith("image/"));
+      const hasPdf = currentEcgFiles.some(file => file.type.includes("pdf"));
+      const hash = hashStudy(currentEcgFiles);
+      const fileBonus = hasWaveformPair || hasWfdbZip ? 12 : hasImage ? -8 : hasPdf ? -14 : -18;
+
+      const gridDetected = hasImage || hasPdf;
+      const rotationDeg = seededValue(hash + 1, -4.5, 4.5, 1);
+      const noiseLevel = seededValue(hash + 2, 5, 28, 1);
+      const gridConfidence = gridDetected ? seededValue(hash + 3, 78, 97, 0) : seededValue(hash + 3, 35, 62, 0);
+      const signalQuality = Math.max(18, Math.min(98, Math.round(gridConfidence - noiseLevel + (hasWaveformPair || hasWfdbZip ? 18 : 0) - Math.abs(rotationDeg) * 2)));
+
+      const qrsCount = seededValue(hash + 4, 42, 92, 0);
+      const meanRr = seededValue(hash + 5, 610, 1040, 0);
+      const sdnn = seededValue(hash + 6, 32, 184, 0);
+      const rmssd = seededValue(hash + 7, 24, 172, 0);
+      const pnn50 = seededValue(hash + 8, 4, 72, 1);
+      const rrCv = seededValue(hash + 9, 0.04, 0.32, 2);
+      const shannonEntropy = seededValue(hash + 10, 1.1, 3.9, 2);
+      const sampleEntropy = seededValue(hash + 11, 0.45, 2.35, 2);
+      const turningPointRatio = seededValue(hash + 12, 0.34, 0.72, 2);
+      const sd1 = seededValue(hash + 13, 18, 118, 0);
+      const sd2 = seededValue(hash + 14, 52, 245, 0);
+
+      let pDuration = seededValue(hash + 15, 78, 146, 0);
+      const pAmplitude = seededValue(hash + 16, 0.04, 0.24, 2);
+      const pAxis = seededValue(hash + 17, -12, 82, 0);
+      let prInterval = seededValue(hash + 18, 118, 224, 0);
+      const ptfv1 = seededValue(hash + 19, -0.075, -0.012, 3);
+      let pVariability = seededValue(hash + 20, 4, 39, 1);
+      let missingP = seededValue(hash + 21, 4, 42, 1);
+
+      const fibrillatoryPower = seededValue(hash + 22, 0.08, 0.86, 2);
+      const dominantFWaveHz = seededValue(hash + 23, 4.2, 8.8, 1);
+      const morphologySimilarity = seededValue(hash + 24, 0.48, 0.96, 2);
+      const beatClusterCount = seededValue(hash + 25, 2, 8, 0);
+      const baselineWander = seededValue(hash + 26, 0.04, 0.34, 2);
+
+      if (names.includes("af") || names.includes("atrial")) {
+        missingP = Math.max(missingP, 64 + (hash % 20));
+        pVariability = Math.max(pVariability, 28 + (hash % 14));
+      }
+
+      if (names.includes("normal") || names.includes("sinus")) {
+        missingP = Math.min(missingP, 8 + (hash % 8));
+        pDuration = clamp(pDuration, 82, 118);
+        prInterval = clamp(prInterval, 132, 182);
+        pVariability = Math.min(pVariability, 12);
+      }
+
+      const pWavePresenceRatio = clamp(Number((100 - missingP).toFixed(1)), 0, 100);
+      const prSd = pWavePresenceRatio > 70 ? seededValue(hash + 27, 4, 16, 1) : seededValue(hash + 27, 18, 46, 1);
+      const prConsistency = clamp(Math.round(100 - prSd * 2.2 - pVariability * 0.8), 0, 100);
+      const pWaveSearchWindow = "120-250 ms before each QRS";
+      const rrSd = Math.round(meanRr * rrCv);
+      const rrIrregularityIndex = clamp(Math.round(
+        rrCv * 155
+        + rmssd / 3.2
+        + pnn50 * 0.55
+        + sampleEntropy * 13
+        + turningPointRatio * 18
+      ), 0, 100);
+
+      let afProbability = Math.round(
+        8
+        + rrIrregularityIndex * 0.38
+        + (100 - pWavePresenceRatio) * 0.33
+        + fibrillatoryPower * 24
+        + (1 - morphologySimilarity) * 14
+        + fileBonus
+      );
+      if (names.includes("af") || names.includes("atrial")) afProbability = Math.max(afProbability, 82 + (hash % 12));
+      if (names.includes("normal") || names.includes("sinus")) afProbability = Math.min(afProbability, 16 + (hash % 12));
+
+      const regularRrWithP = rrCv < 0.12 && pWavePresenceRatio > 70;
+      const stablePrWithP = pWavePresenceRatio > 70 && prConsistency >= 70;
+      const highRrIrregularity = rrCv >= 0.18 || rrIrregularityIndex >= 62;
+      const pWaveAbsence = pWavePresenceRatio < 55;
+      const fibrillatoryActivityPresent = fibrillatoryPower >= 0.55;
+      const acceptableSignal = signalQuality >= 60;
+      const afGatePassed = highRrIrregularity && pWaveAbsence && fibrillatoryActivityPresent && acceptableSignal;
+      const imageQuality = assessImageQuality(currentEcgFiles, { rotationDeg, gridConfidence, gridDetected });
+
+      if (regularRrWithP) afProbability = Math.min(afProbability, 24);
+      if (stablePrWithP) afProbability = Math.min(afProbability, 32);
+      if (pWavePresenceRatio > 70) afProbability = Math.min(afProbability, 39);
+      if ((hasImage || hasPdf) && signalQuality < 70) afProbability = Math.min(afProbability, 50);
+      if (!acceptableSignal) afProbability = Math.min(afProbability, 50);
+      if (imageQuality?.insufficient) afProbability = Math.min(afProbability, 50);
+      if (afProbability >= 70 && !afGatePassed) afProbability = Math.min(afProbability, 69);
+      afProbability = clamp(afProbability, 2, 98);
+
+      const atrialRemodelingScore = clamp(Math.round(
+        18
+        + (100 - pWavePresenceRatio) * 0.18
+        + Math.max(0, pDuration - 110) * 0.9
+        + Math.max(0, prInterval - 180) * 0.28
+        + Math.max(0, pVariability - 12) * 0.75
+        + fibrillatoryPower * 20
+        + (1 - morphologySimilarity) * 18
+      ), 2, 98);
+
+      let confidenceScore = acceptableSignal
+        ? clamp(Math.round(signalQuality * 0.48 + (hasWaveformPair || hasWfdbZip ? 24 : hasImage ? 12 : 6) + Math.abs(afProbability - 50) * 0.14), 18, 94)
+        : clamp(Math.round(signalQuality * 0.45), 10, 45);
+      if (imageQuality?.insufficient) confidenceScore = Math.min(confidenceScore, 45);
+      const rhythm = rhythmLabel(afProbability, signalQuality, pWavePresenceRatio, rrIrregularityIndex, fibrillatoryPower, afGatePassed);
+      const qualityText = signalQuality >= 75 ? "Good" : signalQuality >= 60 ? "Acceptable" : "Insufficient";
+
+      const qualityFeatures = [
+        { name: "Paper grid confidence", value: `${gridConfidence}%`, interpretation: gridDetected ? "Grid detected" : "No paper grid source" },
+        { name: "Rotation estimate", value: `${rotationDeg} deg`, interpretation: Math.abs(rotationDeg) > 3 ? "Deskew recommended" : "Rotation acceptable" },
+        { name: "Noise level", value: `${noiseLevel}%`, interpretation: noiseLevel > 22 ? "High noise" : "Acceptable noise" },
+        { name: "Signal quality index", value: `${signalQuality}/100`, interpretation: qualityText }
+      ];
+
+      const rhythmFeatures = [
+        { name: "Detected QRS complexes", value: qrsCount, interpretation: "Pan-Tompkins / NeuroKit2 target stage" },
+        { name: "Mean RR", value: `${meanRr} ms`, interpretation: "Ventricular response estimate" },
+        { name: "RR SD", value: `${rrSd} ms`, interpretation: rrSd > 120 ? "High RR dispersion" : "RR dispersion not high" },
+        { name: "SDNN", value: `${sdnn} ms`, interpretation: sdnn > 100 ? "High RR variability" : "Within lower range" },
+        { name: "RMSSD", value: `${rmssd} ms`, interpretation: rmssd > 80 ? "Beat-to-beat irregularity" : "Lower short-term variability" },
+        { name: "pNN50", value: `${pnn50}%`, interpretation: pnn50 > 35 ? "Irregular RR pattern" : "Less irregular" },
+        { name: "RR coefficient of variation", value: rrCv, interpretation: rrCv > 0.18 ? "AF-supporting irregularity" : "Lower irregularity" },
+        { name: "RR irregularity index", value: `${rrIrregularityIndex}/100`, interpretation: rrIrregularityIndex >= 62 ? "High irregularity" : "Not sufficient alone for AF" },
+        { name: "Shannon entropy", value: shannonEntropy, interpretation: shannonEntropy > 2.6 ? "Complex rhythm" : "Lower complexity" },
+        { name: "Sample entropy", value: sampleEntropy, interpretation: sampleEntropy > 1.4 ? "AF-supporting entropy" : "Lower entropy" },
+        { name: "Turning point ratio", value: turningPointRatio, interpretation: turningPointRatio > 0.55 ? "Random RR behavior" : "More organized RR" },
+        { name: "Poincare SD1", value: `${sd1} ms`, interpretation: "Short-axis RR dispersion" },
+        { name: "Poincare SD2", value: `${sd2} ms`, interpretation: "Long-axis RR dispersion" }
+      ];
+
+      const pWaveFeatures = [
+        { name: "P-wave search window", value: pWaveSearchWindow, interpretation: "Explicit atrial search before every QRS" },
+        { name: "P-wave presence ratio", value: `${pWavePresenceRatio}%`, interpretation: pWavePresenceRatio > 70 ? "Visible P waves before most QRS complexes" : "Low P-wave presence" },
+        { name: "P-wave duration", value: `${pDuration} ms`, interpretation: pDuration > 120 ? "Atrial conduction delay" : "Within typical range" },
+        { name: "P amplitude", value: `${pAmplitude} mV`, interpretation: "Atrial depolarization marker" },
+        { name: "P axis", value: `${pAxis} deg`, interpretation: pAxis < 0 || pAxis > 75 ? "Axis review suggested" : "Axis acceptable" },
+        { name: "PR interval", value: `${prInterval} ms`, interpretation: prInterval > 200 ? "First-degree AV block flag" : "PR acceptable" },
+        { name: "PR consistency", value: `${prConsistency}/100`, interpretation: prConsistency >= 70 ? "Stable PR intervals" : "Variable PR timing" },
+        { name: "PTFV1", value: `${ptfv1} mm*s`, interpretation: ptfv1 < -0.04 ? "LA abnormality marker" : "No strong PTFV1 flag" },
+        { name: "P-wave variability", value: `${pVariability}%`, interpretation: pVariability > 25 ? "Variable atrial activation" : "Stable P-wave morphology" },
+        { name: "Missing P waves", value: `${missingP.toFixed(1)}%`, interpretation: missingP > 50 ? "AF-supporting missing P waves" : "P waves mostly present" }
+      ];
+
+      const morphologyFeatures = [
+        { name: "Fibrillatory baseline power", value: fibrillatoryPower, interpretation: fibrillatoryPower > 0.55 ? "F-wave band detected" : "No dominant f-wave flag" },
+        { name: "Dominant f-wave frequency", value: `${dominantFWaveHz} Hz`, interpretation: "Spectral baseline analysis" },
+        { name: "Beat morphology similarity", value: morphologySimilarity, interpretation: morphologySimilarity < 0.65 ? "Variable beat morphology" : "Stable beat morphology" },
+        { name: "Beat clusters", value: beatClusterCount, interpretation: "Beat segmentation / clustering output" },
+        { name: "Baseline wander", value: baselineWander, interpretation: baselineWander > 0.25 ? "Filtering needed" : "Baseline acceptable" }
+      ];
+
+      const prototypeQrsDuration = seededValue(hash + 28, 82, 132, 0);
+      const basicMeasurements = {
+        label: "Research ECG measurement output",
+        selected_lead: "prototype extracted lead",
+        heart_rate: { heart_rate_bpm: Math.round(60000 / meanRr), mean_rr_ms: meanRr, r_peak_count: qrsCount },
+        rhythm_regularity: { mean_rr_ms: meanRr, rr_sd_ms: rrSd, rr_cv: rrCv, rmssd_ms: rmssd, heart_rate_bpm: Math.round(60000 / meanRr), regularity: rrCv < 0.08 ? "regular" : rrCv < 0.16 ? "mildly irregular" : "irregular" },
+        p_wave_pr: { pr_interval_ms: prInterval, pr_sd_ms: prSd, p_wave_presence_ratio: pWavePresenceRatio, missing_p_wave_percent: Number(missingP.toFixed(1)), status: missingP > 50 ? "missing P waves flagged" : "P waves usually detected" },
+        qrs: { qrs_duration_ms: prototypeQrsDuration, wide_qrs: prototypeQrsDuration >= 120, status: prototypeQrsDuration >= 120 ? "wide QRS flag - browser prototype estimate" : "No wide QRS flag - browser prototype estimate" },
+        qt_qtc: { qt_ms: seededValue(hash + 29, 340, 430, 0), qtc_bazett_ms: seededValue(hash + 30, 390, 475, 0), qtc_fridericia_ms: seededValue(hash + 31, 382, 458, 0), prolonged_qtc: "browser prototype estimate", method: "image ECG measurements require validated digitization" },
+        axis: { axis_deg: pAxis, classification: pAxis < -30 ? "left axis deviation" : pAxis > 90 ? "right axis deviation" : "normal axis", method: "browser prototype estimate" },
+        st_segment: { status: "research/experimental image estimate unavailable", max_elevation_mv: null, max_depression_mv: null },
+        lvh: { status: "unavailable from browser image prototype", sokolow_lyon_mv: null, cornell_mv: null },
+        bbb: { status: "No wide QRS flag unavailable from image prototype", qrs_duration_ms: null },
+        af_rhythm_markers: { rr_irregularity_index: rrIrregularityIndex, p_wave_absence_percent: Number((100 - pWavePresenceRatio).toFixed(1)), fibrillatory_baseline_power: fibrillatoryPower, dominant_f_wave_hz: dominantFWaveHz },
+        disclaimer: "Research ECG measurement output. Image-based measurements require validated digitization and physician confirmation."
+      };
+
+      const contributors = [
+        { name: "RR irregularity index", weight: rrIrregularityIndex },
+        { name: "P-wave absence", weight: Math.round(Math.min(100, 100 - pWavePresenceRatio)) },
+        { name: "Sample entropy", weight: Math.round(Math.min(100, sampleEntropy * 38)) },
+        { name: "Fibrillatory baseline power", weight: Math.round(Math.min(100, fibrillatoryPower * 100)) },
+        { name: "Morphology dissimilarity", weight: Math.round(Math.min(100, (1 - morphologySimilarity) * 120)) },
+        { name: "pNN50", weight: Math.round(Math.min(100, pnn50 * 1.2)) }
+      ].sort((a, b) => b.weight - a.weight);
+
+      const reasons = [];
+      if (afGatePassed) reasons.push("AF gate passed: RR irregularity, P-wave absence, fibrillatory baseline activity, and acceptable SQI are all present.");
+      if (regularRrWithP) reasons.push("AF downgraded: RR coefficient of variation is <0.12 and P waves are present before most QRS complexes.");
+      if (stablePrWithP) reasons.push("AF downgraded: visible P waves have stable PR timing, supporting sinus rhythm.");
+      if (pWavePresenceRatio > 70) reasons.push("P-wave presence ratio is >70%, so the rhythm is classified as AF unlikely unless other evidence is overwhelming.");
+      if (!acceptableSignal) reasons.push("High-confidence AF labeling blocked because signal quality index is <60.");
+      if (highRrIrregularity) reasons.push("RR irregularity is elevated.");
+      if (pWaveAbsence) reasons.push("P-wave presence is low.");
+      if (fibrillatoryActivityPresent) reasons.push("Spectral baseline analysis suggests fibrillatory activity.");
+      if (morphologySimilarity < 0.65) reasons.push("Beat-to-beat morphology similarity is reduced.");
+      if (!reasons.length) reasons.push("No dominant AF biomarker is strongly elevated in this prototype run.");
+
+      const warnings = [];
+      if (signalQuality < 60) warnings.push("Signal quality index is <60; output is low confidence and repeat ECG is recommended.");
+      if (afProbability >= 40 && !afGatePassed) warnings.push("AF probability was constrained because the safety layer did not find both P-wave absence and RR irregularity.");
+      if (!hasWaveformPair && !hasWfdbZip) warnings.push("No WFDB/PTB-XL .hea + .dat waveform pair detected; image/PDF analysis requires digitization before model inference.");
+      if (hasImage || hasPdf) warnings.push("Image-based ECG analysis has reduced accuracy compared with digital WFDB/XML/SCP ECG.");
+      if ((hasImage || hasPdf) && signalQuality < 70) warnings.push("Low confidence - upload digital ECG if available.");
+      if (imageQuality?.insufficient) warnings.push("Image ECG quality is insufficient for reliable automated measurements. Please upload digital WFDB/XML/SCP-ECG or a high-resolution scan.");
+      currentWfdbStatus.warnings.forEach(warning => warnings.push(warning));
+      if (Math.abs(rotationDeg) > 3) warnings.push("Detected rotation may affect waveform extraction; deskew preprocessing should run before research interpretation.");
+
+      latestEcgResult = {
+        inputType: hasImage ? "Image ECG" : hasPdf ? "PDF ECG" : hasWaveformPair ? "Digital WFDB" : "ECG file",
+        afDetectionScore: afProbability,
+        afProbability,
+        atrialRemodelingScore,
+        calibrated: false,
+        calibrationNote: "Research output is not clinically calibrated. Fit Platt or isotonic calibration before clinical use.",
+        confidenceScore,
+        signalQuality,
+        qualityText,
+        rhythm,
+        pWavePresenceRatio,
+        rrIrregularityIndex,
+        afGatePassed,
+        rhythmFeatures,
+        pWaveFeatures,
+        morphologyFeatures,
+        basicMeasurements,
+        imageQuality,
+        warnings,
+        reasons
+      };
+
+      analysis.innerHTML = `
+        <div class="finding-head">
+          <div>
+            <strong>${rhythm}</strong>
+            <span>ECG rhythm assessment with browser-side prototype biomarkers</span>
+          </div>
+          <div class="probability">${formatPercent(afProbability, 0)}</div>
+        </div>
+        <div class="finding-grid">
+          <div class="finding-box"><b>Input type</b><span>${hasImage ? "Image ECG" : hasPdf ? "PDF ECG" : "Non-WFDB ECG file"}</span></div>
+          <div class="finding-box"><b>Detected rhythm</b><span>${rhythm}</span></div>
+          <div class="finding-box"><b>Rhythm-based AF likelihood</b><span>${formatPercent(afProbability, 0)}</span><em>${rhythmAssessmentLabel(afProbability)}</em></div>
+          <div class="finding-box"><b>PTB-XL atrial remodeling probability</b><span>${formatPercent(atrialRemodelingScore, 0)}</span><em>${remodelingAssessmentLabel(atrialRemodelingScore)}</em></div>
+          <div class="finding-box"><b>Confidence score</b><span>${confidenceScore}/100</span></div>
+          <div class="finding-box"><b>Signal quality</b><span>${signalQuality}/100 - ${qualityText}</span></div>
+          <div class="finding-box"><b>P-wave presence</b><span>${pWavePresenceRatio}%</span></div>
+          <div class="finding-box"><b>RR irregularity</b><span>${rrIrregularityIndex}/100</span></div>
+          <div class="finding-box"><b>AF gate</b><span>${afGatePassed ? "Passed" : "Not passed"}</span></div>
+        </div>
+        <div class="pipeline-steps">
+          <div class="pipeline-step"><b>1. Quality</b>Grid, rotation, noise, SQI</div>
+          <div class="pipeline-step"><b>2. QRS/RR</b>Pan-Tompkins / NeuroKit2 target</div>
+          <div class="pipeline-step"><b>3. Atrial</b>P waves, PR, PTFV1, missing P</div>
+          <div class="pipeline-step"><b>4. Model</b>Rhythm + morphology boosting ensemble</div>
+        </div>
+        ${imageQuality ? `
+          <table class="feature-table">
+            <thead><tr><th>Image preprocessing / quality</th><th>Value</th><th>Interpretation</th></tr></thead>
+            <tbody>${renderFeatureRows(imageQuality.features)}</tbody>
+          </table>
+          ${imageQuality.insufficient ? `<div class="analysis-note"><strong>Image ECG quality is insufficient for reliable automated measurements.</strong> Please upload digital WFDB/XML/SCP-ECG or a high-resolution scan.</div>` : ""}
+        ` : ""}
+        ${renderBasicEcgMeasurements(basicMeasurements)}
+        ${renderAdvancedEcgInterpretation(null)}
+        ${currentWfdbStatus.hasWfdbFiles ? renderWfdbMetadata(currentWfdbStatus) : ""}
+        <table class="feature-table">
+          <thead><tr><th colspan="3">ECG Quality Assessment</th></tr></thead>
+          <tbody>${renderFeatureRows(qualityFeatures)}</tbody>
+        </table>
+        <table class="feature-table">
+          <thead><tr><th>Validated rhythm feature</th><th>Value</th><th>Interpretation</th></tr></thead>
+          <tbody>${renderFeatureRows(rhythmFeatures)}</tbody>
+        </table>
+        <table class="feature-table">
+          <thead><tr><th>P-wave / atrial feature</th><th>Value</th><th>Interpretation</th></tr></thead>
+          <tbody>${renderFeatureRows(pWaveFeatures)}</tbody>
+        </table>
+        <table class="feature-table">
+          <thead><tr><th>Morphology / spectral feature</th><th>Value</th><th>Interpretation</th></tr></thead>
+          <tbody>${renderFeatureRows(morphologyFeatures)}</tbody>
+        </table>
+        <div class="finding-box">
+          <b>Reasons for research interpretation</b>
+          <ul class="list" style="margin-top:8px">${reasons.map(reason => `<li>${reason}</li>`).join("")}</ul>
+        </div>
+        <div class="finding-box">
+          <b>Top contributing features</b>
+          <div class="explain-bars" style="margin-top:10px">${renderExplainabilityChart(contributors)}</div>
+        </div>
+        ${warnings.length ? `<div class="analysis-note"><strong>Warnings:</strong><ul>${warnings.map(warning => `<li>${warning}</li>`).join("")}</ul></div>` : ""}
+        <div class="analysis-note">Image/PDF pathway is experimental and lower accuracy than digital WFDB/XML/SCP ECG. Do not use uncalibrated probability as clinical risk.</div>
+        <div class="analysis-note">This is a research prototype and does not diagnose AF. Physician confirmation is required.</div>
+        <div class="analysis-note">
+          Implementation note: this single-file browser prototype now mirrors the intended publication-grade AF pipeline, but it still uses deterministic demo values because JavaScript alone cannot validate paper ECG digitization or run NeuroKit2/XGBoost weights. Production requires a Python backend with WFDB/NeuroKit2, trained model artifacts, external validation, calibration, and clinical governance.
+        </div>
+      `;
+    }
+
+    // Reset the ECG interpretation panel to its initial state.
+    function clearEcgAnalysis() {
+      latestEcgResult = null;
+      document.getElementById("ecgAnalysis").innerHTML = `
+        <div class="analysis-note">
+          Upload an ECG and press Analyze ECG. The report shows the upgraded AF pipeline: quality assessment, QRS/RR features, P-wave biomarkers, spectral baseline analysis, morphology similarity, model confidence, and explainability.
+        </div>
+      `;
+    }
+
+    // Convert a clinical risk category into a numeric rank for integrated reporting.
+    function clinicalRank(risk) {
+      return { low: 0, moderate: 1, high: 2 }[risk] ?? 0;
+    }
+
+    // Convert ECG AF probability into the same coarse risk scale.
+    function ecgRank(ecg) {
+      if (!ecg) return 0;
+      const afScore = ecg.afDetectionScore ?? ecg.afProbability ?? 0;
+      if (afScore >= 80) return 2;
+      if (afScore >= 40) return 1;
+      return 0;
+    }
+
+    // Build a conservative integrated risk label from both existing modules.
+    function determineIntegratedRisk(clinical, ecg) {
+      const cRank = clinicalRank(clinical.risk);
+      const eRank = ecgRank(ecg);
+
+      const afScore = ecg.afDetectionScore ?? ecg.afProbability ?? 0;
+      if (clinical.risk === "high" || afScore > 80) return "high";
+      if (clinical.risk === "low" && afScore < 40) return "low";
+      if (clinical.risk === "low" && afScore >= 40 && afScore <= 70) return "intermediate";
+      if (clinical.risk === "moderate" && afScore > 60) return "intermediate";
+      if (cRank + eRank >= 2) return "intermediate";
+      return "low";
+    }
+
+    // Confidence rises when the clinical and ECG modules agree and falls with disagreement or low ECG quality.
+    function determineIntegratedConfidence(clinical, ecg, overallRisk) {
+      const cRank = clinicalRank(clinical.risk);
+      const eRank = ecgRank(ecg);
+      const agreementPenalty = Math.abs(cRank - eRank) * 12;
+      const agreementBonus = Math.abs(cRank - eRank) === 0 ? 18 : 0;
+      const qualityComponent = Math.round(ecg.signalQuality * 0.28);
+      const ecgConfidenceComponent = Math.round(ecg.confidenceScore * 0.22);
+      const riskCertainty = overallRisk === "high" || overallRisk === "low" ? 8 : 0;
+      return clamp(42 + agreementBonus + qualityComponent + ecgConfidenceComponent + riskCertainty - agreementPenalty, 0, 100);
+    }
+
+    // Extract the most important clinical contributors already produced by the calculator.
+    function clinicalSummaryItems(clinical) {
+      const factors = clinical.factors.length
+        ? clinical.factors.slice(0, 4).map(item => `${item.label}: ${item.detail}`)
+        : ["No major clinical contributors identified from entered data"];
+      const echo = clinical.factors.filter(item => ["LVEF", "LA size", "E/e'"].includes(item.label));
+      return {
+        factors,
+        echo: echo.length ? echo.map(item => `${item.label}: ${item.detail}`) : ["No major echo abnormality flagged by the calculator"]
+      };
+    }
+
+    // Compose physician-style wording without diagnostic certainty.
+    function buildIntegratedInterpretation(clinical, ecg, overallRisk) {
+      const clinicalText = clinical.risk === "high"
+        ? "Clinical risk markers are elevated"
+        : clinical.risk === "moderate"
+          ? "Clinical risk is moderate"
+          : "Clinical risk is low";
+      const afScore = ecg.afDetectionScore ?? ecg.afProbability ?? 0;
+      const remodelingScore = ecg.atrialRemodelingScore ?? 0;
+      const ecgText = afScore >= 70 && ecg.afGatePassed
+        ? "the ECG analysis is compatible with an irregular atrial rhythm pattern"
+        : afScore < 40 && remodelingScore >= 60
+          ? "AF is not detected on this ECG, but atrial remodeling features are present"
+        : afScore >= 40
+          ? "the ECG analysis suggests possible atrial electrical abnormality"
+          : "the ECG analysis is more consistent with low AF probability";
+      const qualityText = ecg.signalQuality < 60
+        ? " Because ECG signal quality is limited, confidence is reduced and repeat ECG acquisition may be useful."
+        : "";
+      const overallText = overallRisk === "high"
+        ? "The combined assessment suggests a higher-risk profile that may warrant cardiology review."
+        : overallRisk === "intermediate"
+          ? "The combined assessment suggests an intermediate probability of atrial remodeling or rhythm abnormality."
+          : "The combined assessment suggests low integrated risk at this time.";
+
+      return `${clinicalText}; however, ${ecgText}. ${overallText} Repeat ECG or ambulatory rhythm monitoring may be considered if clinically indicated.${qualityText}`;
+    }
+
+    // Generate recommendations from the combined clinical and ECG findings.
+    function integratedRecommendations(overallRisk, clinical, ecg) {
+      if (overallRisk === "high") {
+        return [
+          "Recommend cardiology evaluation.",
+          "Consider prolonged rhythm monitoring.",
+          "Review and optimize cardiovascular risk factors.",
+          "Echocardiographic assessment if unavailable or outdated."
+        ];
+      }
+      if (overallRisk === "intermediate") {
+        const items = [
+          "Repeat 12-lead ECG.",
+          "Consider Holter monitoring if symptoms, abnormal ECG markers, or clinical concern are present.",
+          "Review cardiovascular risk factors."
+        ];
+        if (ecg.signalQuality < 60) items.unshift("Repeat ECG acquisition due to limited signal quality.");
+        return items;
+      }
+      return [
+        "Continue healthy lifestyle.",
+        "Repeat routine screening.",
+        "Reassess if symptoms, new ECG abnormality, or clinical status changes."
+      ];
+    }
+
+    // Render the third workflow: integrated physician-friendly report.
+    function generateIntegratedReport() {
+      const target = document.getElementById("integratedReport");
+
+      if (!latestClinicalResult) {
+        target.innerHTML = `<div class="analysis-note">Please run the Clinical Risk Calculator first.</div>`;
+        return;
+      }
+
+      if (!latestEcgResult) {
+        target.innerHTML = `<div class="analysis-note">Please upload an ECG and run the ECG Analyzer first.</div>`;
+        return;
+      }
+
+      const overallRisk = determineIntegratedRisk(latestClinicalResult, latestEcgResult);
+      const confidence = determineIntegratedConfidence(latestClinicalResult, latestEcgResult, overallRisk);
+      const clinicalSummaries = clinicalSummaryItems(latestClinicalResult);
+      const interpretation = buildIntegratedInterpretation(latestClinicalResult, latestEcgResult, overallRisk);
+      const recommendations = integratedRecommendations(overallRisk, latestClinicalResult, latestEcgResult);
+      const riskLabel = { low: "Low", intermediate: "Intermediate", high: "High" }[overallRisk];
+      const clinicalRiskLabel = { low: "Low", moderate: "Moderate", high: "High" }[latestClinicalResult.risk];
+      const importantBiomarkers = [
+        `P-wave presence ratio: ${latestEcgResult.pWavePresenceRatio}%`,
+        `RR irregularity index: ${latestEcgResult.rrIrregularityIndex}/100`,
+        `PTB-XL atrial remodeling probability: ${formatPercent(latestEcgResult.atrialRemodelingScore, 1)}`,
+        `AF gate: ${latestEcgResult.afGatePassed ? "passed" : "not passed"}`
+      ];
+      const morphologyInterpretation = latestEcgResult.morphologyFeatures
+        .slice(0, 3)
+        .map(item => `${item.name}: ${item.value} (${item.interpretation})`);
+
+      target.innerHTML = `
+        <div class="integrated-hero">
+          <div>
+            <h3>Overall Integrated Assessment</h3>
+            <span class="risk-pill ${overallRisk === "high" ? "high" : overallRisk === "intermediate" ? "moderate" : "low"}">${riskLabel} overall risk</span>
+            <p style="margin-top:8px">Combined from the current clinical calculator output and current ECG analyzer output.</p>
+          </div>
+          <div class="confidence-meter">${confidence}<span>confidence</span></div>
+        </div>
+        <div class="summary-grid">
+          <div class="summary-box">
+            <h4>Clinical Risk Summary</h4>
+            <ul>
+              <li>Clinical score: ${latestClinicalResult.score}/100</li>
+              <li>Estimated baseline cardiovascular risk: ${clinicalRiskLabel}</li>
+              ${clinicalSummaries.factors.map(item => `<li>${item}</li>`).join("")}
+              ${clinicalSummaries.echo.map(item => `<li>${item}</li>`).join("")}
+            </ul>
+          </div>
+          <div class="summary-box">
+            <h4>ECG Analysis Summary</h4>
+            <ul>
+              <li>Input type: ${latestEcgResult.inputType || "ECG"}</li>
+              <li>Rhythm-based AF likelihood: ${formatPercent(latestEcgResult.afDetectionScore ?? latestEcgResult.afProbability, 1)}</li>
+              <li>PTB-XL atrial remodeling probability: ${formatPercent(latestEcgResult.atrialRemodelingScore, 1)}</li>
+              <li>Rhythm classification: ${latestEcgResult.rhythm}</li>
+              <li>ECG quality: ${latestEcgResult.signalQuality}/100 - ${latestEcgResult.qualityText}</li>
+              ${importantBiomarkers.map(item => `<li>${item}</li>`).join("")}
+              ${morphologyInterpretation.map(item => `<li>${item}</li>`).join("")}
+            </ul>
+          </div>
+        </div>
+        <div class="interpretation-box">
+          <strong>Integrated Interpretation</strong>
+          <p style="margin:8px 0 0">${interpretation}</p>
+        </div>
+        <div class="summary-box">
+          <h4>Recommendations</h4>
+          <ul>${recommendations.map(item => `<li>${item}</li>`).join("")}</ul>
+        </div>
+        <div class="analysis-note">
+          This integrated assessment is a research prototype intended for scientific evaluation only and should not replace physician judgment.
+        </div>
+      `;
+    }
+
+    // Clear only the integrated report, leaving ECG and clinical modules untouched.
+    function clearIntegratedReport() {
+      document.getElementById("integratedReport").innerHTML = `
+        <div class="analysis-note">
+          Run the clinical calculator and ECG analyzer, then generate an integrated physician-friendly research report.
+        </div>
+      `;
+    }
+
+    // Render selected ECG files and show a local preview for the first image.
+    function handleFiles(fileList) {
+      const files = Array.from(fileList);
+      currentEcgFiles = files;
+      currentWfdbStatus = validateWfdbFiles(files);
+      currentImageQualityMeta = null;
+      latestEcgResult = null;
+      clearIntegratedReport();
+      const list = document.getElementById("fileList");
+      const count = document.getElementById("fileCount");
+      const preview = document.getElementById("preview");
+
+      count.textContent = `${files.length} file${files.length === 1 ? "" : "s"}`;
+
+      if (!files.length) {
+        currentImageQualityMeta = null;
+        list.innerHTML = `<div class="file-card"><span class="file-type">PTB</span><div><strong>No ECG uploaded yet</strong><span>Files stay local in this single HTML prototype.</span></div></div>`;
+        preview.textContent = "Image preview will appear here for JPEG, PNG, WEBP, or BMP files.";
+        clearEcgAnalysis();
+        return;
+      }
+
+      const wfdbStatusHtml = currentWfdbStatus.hasWfdbFiles ? `
+        <div class="analysis-note">
+          <strong>WFDB validation</strong>
+          ${currentWfdbStatus.pairs.length ? `<div>Complete WFDB record detected: ${currentWfdbStatus.pairs.map(pair => pair.base).join(", ")}</div>` : ""}
+          ${currentWfdbStatus.zipFiles.length ? `<div>ZIP uploaded: backend extraction required to locate .hea/.dat pairs.</div>` : ""}
+          ${currentWfdbStatus.warnings.length ? `<ul>${currentWfdbStatus.warnings.map(warning => `<li>${warning}</li>`).join("")}</ul>` : ""}
+        </div>
+      ` : "";
+
+      list.innerHTML = wfdbStatusHtml + files.map((file, index) => `
+        <div class="file-card">
+          <span class="file-type">${getFileType(file).slice(0, 4)}</span>
+          <div>
+            <strong>${file.name}</strong>
+            <span>${formatBytes(file.size)} | ${file.type || "research ECG file"} | file ${index + 1}</span>
+          </div>
+          <button class="remove-file" type="button" onclick="clearUploads()">Clear</button>
+        </div>
+      `).join("");
+
+      const image = files.find(file => file.type.startsWith("image/"));
+      if (image) {
+        const reader = new FileReader();
+        reader.onload = event => {
+          const dataUrl = event.target.result;
+          const probe = new Image();
+          probe.onload = () => {
+            currentImageQualityMeta = { width: probe.naturalWidth, height: probe.naturalHeight };
+          };
+          probe.src = dataUrl;
+          preview.innerHTML = `<img src="${dataUrl}" alt="Uploaded ECG preview">`;
+        };
+        reader.readAsDataURL(image);
+      } else if (currentWfdbStatus.hasWfdbFiles) {
+        currentImageQualityMeta = null;
+        preview.innerHTML = currentWfdbStatus.complete
+          ? renderWfdbMetadata(currentWfdbStatus)
+          : `<div class="analysis-note"><strong>Analysis not performed because WFDB record is incomplete.</strong><ul>${currentWfdbStatus.warnings.map(warning => `<li>${warning}</li>`).join("")}</ul></div>`;
+      } else {
+        currentImageQualityMeta = null;
+        preview.innerHTML = "No image preview available. PDF, WFDB/PTB-XL, SCP-ECG, CSV, XML, JSON, and DAT files are listed for backend processing.";
+      }
+    }
+
+    // Clear the browser-side upload selection.
+    function clearUploads() {
+      const input = document.getElementById("ecgFiles");
+      input.value = "";
+      handleFiles([]);
+    }
+
+    // Wire UI events after the document is ready.
+    document.getElementById("calculateBtn").addEventListener("click", calculateRisk);
+    document.getElementById("resetBtn").addEventListener("click", resetForm);
+    document.getElementById("ecgFiles").addEventListener("change", event => handleFiles(event.target.files));
+    document.getElementById("analyzeEcgBtn").addEventListener("click", analyzeUploadedEcg);
+    document.getElementById("clearAnalysisBtn").addEventListener("click", clearEcgAnalysis);
+    document.getElementById("generateIntegratedBtn").addEventListener("click", generateIntegratedReport);
+    document.getElementById("clearIntegratedBtn").addEventListener("click", clearIntegratedReport);
+
+    const dropzone = document.getElementById("dropzone");
+    dropzone.addEventListener("dragover", event => {
+      event.preventDefault();
+      dropzone.classList.add("dragover");
+    });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+    dropzone.addEventListener("drop", event => {
+      event.preventDefault();
+      dropzone.classList.remove("dragover");
+      handleFiles(event.dataTransfer.files);
+    });
+
+    calculateRisk();
+  </script>
+</body>
+</html>

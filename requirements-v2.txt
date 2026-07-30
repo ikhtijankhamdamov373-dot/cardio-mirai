@@ -1,0 +1,27 @@
+# Core scientific stack
+numpy
+scipy
+pandas
+scikit-learn
+joblib
+
+# ECG waveform loading and signal processing
+wfdb
+neurokit2
+python-multipart
+
+# Modeling
+xgboost
+lightgbm
+torch
+
+# Calibration, validation, and interpretation
+shap
+matplotlib
+seaborn
+
+# API and reporting
+fastapi
+uvicorn
+pydantic
+reportlab
