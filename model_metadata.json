@@ -1,0 +1,57 @@
+{
+  "created": "2026-07-01",
+  "data_file": "features_table.csv",
+  "n_total_rows": 21799,
+  "n_labeled": 12253,
+  "n_positive": 3368,
+  "n_negative": 8885,
+  "target": "atrial_abnormality (derived from scp_codes)",
+  "atrial_codes": [
+    "AFIB",
+    "AFLT",
+    "LAO/LAE",
+    "PAC",
+    "RAO/RAE",
+    "SARRH",
+    "SVARR",
+    "SVTAC"
+  ],
+  "feature_columns": [
+    "age",
+    "sex",
+    "p_duration_ms",
+    "p_amplitude_mv",
+    "p_axis_deg",
+    "pr_interval_ms",
+    "qrs_duration_ms",
+    "qtc_ms",
+    "ptfv1_mv_ms"
+  ],
+  "test_size": 0.3,
+  "seed": 42,
+  "metrics": {
+    "logistic": {
+      "roc_auc": 0.7681,
+      "sensitivity": 0.6782,
+      "specificity": 0.7547,
+      "confusion_matrix": {
+        "TN": 2012,
+        "FP": 654,
+        "FN": 325,
+        "TP": 685
+      }
+    },
+    "gradient_boosting": {
+      "roc_auc": 0.8386,
+      "sensitivity": 0.5614,
+      "specificity": 0.9325,
+      "confusion_matrix": {
+        "TN": 2486,
+        "FP": 180,
+        "FN": 443,
+        "TP": 567
+      }
+    }
+  },
+  "note": "Detects CURRENT atrial abnormality; does NOT predict future AF (that needs longitudinal outcome data)."
+}

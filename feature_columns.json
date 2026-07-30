@@ -1,0 +1,11 @@
+[
+  "age",
+  "sex",
+  "p_duration_ms",
+  "p_amplitude_mv",
+  "p_axis_deg",
+  "pr_interval_ms",
+  "qrs_duration_ms",
+  "qtc_ms",
+  "ptfv1_mv_ms"
+]
