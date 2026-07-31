@@ -1553,3 +1553,11 @@ async def analyze_wfdb(
         result["record"] = pairs[0].record_path_without_extension.name
         result["records_found"] = [pair.record_path_without_extension.name for pair in pairs]
         return result
+
+
+# ---- serve the frontend homepage ----
+from fastapi.responses import FileResponse
+
+@app.get("/")
+def _serve_index():
+    return FileResponse(str(PROJECT_ROOT / "index.html"))
