@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: cardio-mirai
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn cardiomirai.api:app --host 0.0.0.0 --port $PORT"
