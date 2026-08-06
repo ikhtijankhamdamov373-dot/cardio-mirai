@@ -1,6 +1,110 @@
 # Cardio MIRAI — Phase 1 Change Log
 
-Branch: `feature/nextjs-phase-1` (4 commits on top of `main`, not merged)
+Branch: `feature/nextjs-phase-1` (6 commits on top of `main`, not merged, not deployed)
+
+## Update: Backend stabilization (this round)
+
+Per your instructions, backend fixes were completed before any preview
+deployment. Preview deployment has **not** happened — nothing beyond this
+branch/bundle has changed.
+
+### Priority 1 — Model path resolution: FIXED, verified live
+
+`MODEL_DIR` previously pointed at `<project_root>/models/`, which doesn't
+exist — artifacts ship at the project root. This meant `/api/analyze-wfdb`
+was returning `424` ("model files not found") in production.
+
+**Fix:** `_resolve_model_dir()` in `cardiomirai/api.py` checks, in order:
+1. `CARDIO_MIRAI_MODEL_DIR` env override (optional)
+2. `<project_root>/models/` (the documented location)
+3. `<project_root>` (where the files actually are today)
+
+...and uses whichever directory actually has all required artifact files.
+**No files were moved.** Verified two ways:
+- 3 new unit tests (`test_model_dir_resolves_without_moving_artifacts`,
+  `test_model_dir_prefers_documented_models_subfolder`,
+  `test_model_dir_respects_env_override`) — all passing.
+- Live manual check against a real running `uvicorn` server: `/api/health`
+  returns `{"ok": true}`, `/api/analyze-wfdb` returns a real result
+  (`record: valid_record, af_detection_score: 69.0`) from an uploaded
+  synthetic WFDB record.
+
+### Priority 2 — Upload security hardening: IMPLEMENTED, verified live
+
+All added to `cardiomirai/api.py`, same endpoint, same request/response
+shape, only more specific error messages for previously-vague failures:
+
+| Control | Implementation |
+| --- | --- |
+| Upload size limits | Per-file (20 MB) + per-request total (50 MB), both env-configurable (`CARDIO_MIRAI_MAX_FILE_SIZE_BYTES`, `CARDIO_MIRAI_MAX_TOTAL_UPLOAD_BYTES`), enforced while streaming — no unbounded reads |
+| ZIP-slip protection | Every archive member's resolved path is verified to stay inside the extraction sandbox (`_resolve_within`) before being written; unsafe members are skipped and logged, never extracted |
+| Archive validation | Corrupt/invalid ZIPs → clear `400`, not an unhandled exception; member-count cap (500) and uncompressed-size cap (100 MB) guard against zip bombs |
+| Filename sanitization | `_safe_name()` strips null bytes, path separators, and rejects `.`/`..`/empty names — applied to top-level uploads *and* every ZIP member |
+| Supported file checks | Only `.hea`/`.dat`/`.zip` accepted; anything else rejected **before** being written to disk |
+| Safe temp directories | Confirmed existing `TemporaryDirectory()` already creates a process-private (`0o700`) dir, always removed on exit — no uploaded file persists beyond the request |
+| No internal error exposure | Exceptions logged in full server-side only; client never sees temp-directory paths or raw exception text |
+| Restricted CORS | `allow_origins=["*"]` → explicit allowlist (`cardiomirai.com`, `www.cardiomirai.com`, local dev origins), configurable via `CARDIO_MIRAI_CORS_ORIGINS` |
+
+**Verified live:**
+```
+=== unsupported extension (.exe) ===
+HTTP 400 — {"detail":"Unsupported file type '.exe'. Allowed types: .dat, .hea, .zip."}
+
+=== CORS: disallowed origin (evil-attacker.example) ===
+HTTP 200 — no Access-Control-Allow-Origin header returned
+
+=== CORS: allowed origin (cardiomirai.com) ===
+HTTP 200 — access-control-allow-origin: https://cardiomirai.com
+```
+
+### Test results — this round
+
+**`pytest tests/test_api.py -v`: 17/17 passed**
+- 3 model-path resolution tests (new)
+- 6 original endpoint tests (health, valid pair, incomplete record, ZIP, health-of-model-path)
+- 8 new security tests: oversized file (413), oversized total (413), unsupported extension rejected pre-save, filename sanitization (path traversal + null byte), malicious ZIP with traversal member neutralized, invalid ZIP → clear 400, too-many-members ZIP rejected, error messages don't leak temp paths
+
+**Frontend — unaffected:** `npm test` still 17/17 → 12/12 passing (re-run after backend changes to confirm no regression); `npm run build` unaffected (frontend wasn't touched this round).
+
+### Security summary
+
+- **Before this round:** wildcard CORS, no size limits, no zip-slip protection, no archive validation, raw exception text (including temp paths) returned to clients, model artifacts effectively unreachable in production.
+- **After this round:** explicit CORS allowlist, enforced per-file/per-request size caps, zip-slip-safe extraction with member/size caps, corrupt-archive handling, sanitized filenames throughout, generic client-facing error messages with full detail logged server-side only, and a working model-inference path.
+- **Still out of scope / not touched:** authentication/authorization (endpoint remains open, as it was before — no instruction to add auth), rate limiting, virus/malware content scanning of uploaded files (only extension + structural validation), HTTPS/TLS (handled by Render, not application code).
+
+### Updated architecture note
+
+No structural change — `cardiomirai/api.py` remains the single backend
+module. The only new pieces are the constants block, `_resolve_model_dir`,
+`_resolve_within`, `UploadValidationError`, and the hardened bodies of
+`_safe_name`, `_save_uploads`, `_extract_zip_files`, and `analyze_wfdb`.
+`frontend/` is unaffected by this round of changes.
+
+### Endpoint verification
+
+| Endpoint | Status |
+| --- | --- |
+| `GET /api/health` | ✅ `{"ok": true}` |
+| `POST /api/analyze-wfdb` (valid `.hea`/`.dat`) | ✅ real result with `af_detection_score` |
+| `POST /api/analyze-wfdb` (valid `.zip`) | ✅ |
+| `POST /api/analyze-wfdb` (incomplete record) | ✅ `400` |
+| `POST /api/analyze-wfdb` (unsupported extension) | ✅ `400`, rejected pre-save |
+| `POST /api/analyze-wfdb` (oversized file/request) | ✅ `413` |
+| `POST /api/analyze-wfdb` (malicious ZIP, path traversal) | ✅ neutralized, no file written outside sandbox |
+| `POST /api/analyze-wfdb` (corrupt ZIP) | ✅ `400`, no crash |
+
+### Deployment status
+
+**Not deployed.** Per your instruction, no preview deployment has been
+created. Everything above was verified locally in this sandbox, against a
+real running `uvicorn` process, and via the pytest suite. `main` remains
+completely untouched — confirmed with `git diff main..feature/nextjs-phase-1 --stat`
+against `render.yaml`, `requirements.txt`, and all model artifact files:
+empty diff.
+
+---
+
+## Original Phase 1 record (scaffold + legacy URL fix)
 
 ## How to apply this to your actual GitHub repo
 
@@ -67,7 +171,7 @@ npm run dev                  # http://localhost:3000
 
 ## Test results (run in this environment)
 
-**Backend — `pytest tests/test_api.py -v`: 6/6 passed**
+**Backend — `pytest tests/test_api.py -v`: 6/6 passed (this section reflects the original Phase 1 scaffold; see updated 17/17 results above)**
 - `test_health_endpoint_returns_ok`
 - `test_valid_wfdb_hea_dat_pair_is_analyzed`
 - `test_hea_without_matching_dat_is_rejected`
@@ -93,12 +197,13 @@ npm run dev                  # http://localhost:3000
 - The only change to a file the live Render service reads is the 1-line URL fix in `index.html`, isolated in its own commit, not yet merged to `main`.
 - `main` has not been touched; nothing has been pushed; no DNS or deployment changed.
 
-## Two findings surfaced during testing (not acted on — need your decision)
+## Two findings surfaced during initial testing — now resolved (see update above)
 
-1. **`MODEL_DIR` mismatch**: `cardiomirai/api.py` looks for model artifacts in `<repo_root>/models/`, but they live at the repo root itself. This likely means `/api/analyze-wfdb` is returning a 424 "model not found" error in production right now, independent of anything in this branch. Tests above only pass because they monkeypatch `MODEL_DIR` for the test run — production code is untouched. Let me know if you'd like this fixed (either move the files or fix the path) as its own isolated commit.
-2. **No upload size limit or zip-slip protection** on `/api/analyze-wfdb`. Confirmed by test. Per your instruction not to modify existing endpoints, I left this as-is and documented it rather than patching it silently. This would need to be its own approved subphase since it changes endpoint behavior (some currently-accepted uploads would start being rejected).
+1. ~~**`MODEL_DIR` mismatch**~~ — **Fixed**, see "Priority 1" above.
+2. ~~**No upload size limit or zip-slip protection**~~ — **Fixed**, see "Priority 2" above.
 
 ## Next steps (your call)
 
-- Review the preview deployment, then decide on the two findings above.
-- When ready, the ECG interface port is the next subphase (safeguard #6) — a full port of the existing upload/analyze UI into `frontend/app/ecg-ai/page.tsx`, replacing today's migration-notice placeholder.
+- Review this round's changes and test output; merge `feature/nextjs-phase-1` into `main` when satisfied.
+- Preview deployment (frontend on a separate Vercel/Render project, `cardiomirai.com` DNS untouched) is ready whenever you give the go-ahead.
+- ECG interface port remains a separate subphase, not started, per your instruction to hold it until the backend is verified — which it now is.
