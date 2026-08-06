@@ -5,12 +5,13 @@ from __future__ import annotations
 import json
 import logging
 import math
+import os
 import shutil
 from functools import lru_cache
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Iterable
-from zipfile import ZipFile
+from zipfile import BadZipFile, ZipFile
 
 import joblib
 import numpy as np
@@ -23,16 +24,75 @@ from .wfdb_loader import find_wfdb_pairs, load_wfdb_pair, wfdb_metadata
 
 app = FastAPI(title="Cardio MIRAI WFDB Backend", version="2.0.0-alpha")
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-MODEL_DIR = PROJECT_ROOT / "models"
+
+# ---------------------------------------------------------------------------
+# Model artifact resolution (Priority 1 fix)
+# ---------------------------------------------------------------------------
+# README.md documents artifacts living under `<project_root>/models/`, but
+# they currently ship at the project root. Rather than moving files, resolve
+# the directory robustly: prefer an explicit env override, then the
+# documented `models/` path, then the project root where the files actually
+# are today. This keeps working regardless of which layout is used in a
+# given deployment.
+_REQUIRED_MODEL_FILES = (
+    "atrial_logistic_model.pkl",
+    "feature_scaler.pkl",
+    "feature_columns.json",
+    "model_metadata.json",
+)
+
+
+def _resolve_model_dir() -> Path:
+    candidates: list[Path] = []
+    env_override = os.environ.get("CARDIO_MIRAI_MODEL_DIR")
+    if env_override:
+        candidates.append(Path(env_override))
+    candidates.append(PROJECT_ROOT / "models")
+    candidates.append(PROJECT_ROOT)
+
+    for candidate in candidates:
+        if all((candidate / name).exists() for name in _REQUIRED_MODEL_FILES):
+            return candidate
+
+    # Nothing matched: fall back to the documented location so the resulting
+    # "files not found" error message points somewhere sensible.
+    return PROJECT_ROOT / "models"
+
+
+MODEL_DIR = _resolve_model_dir()
 MODEL_MISSING_MESSAGE = "Trained PTB-XL model files not found. Please run training script first."
 MODEL_TARGET = "current atrial abnormality"
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Upload security controls (Priority 2)
+# ---------------------------------------------------------------------------
+MAX_FILE_SIZE_BYTES = int(os.environ.get("CARDIO_MIRAI_MAX_FILE_SIZE_BYTES", 20 * 1024 * 1024))       # 20 MB / file
+MAX_TOTAL_UPLOAD_BYTES = int(os.environ.get("CARDIO_MIRAI_MAX_TOTAL_UPLOAD_BYTES", 50 * 1024 * 1024))  # 50 MB / request
+MAX_ZIP_MEMBER_COUNT = int(os.environ.get("CARDIO_MIRAI_MAX_ZIP_MEMBERS", 500))
+MAX_ZIP_UNCOMPRESSED_BYTES = int(os.environ.get("CARDIO_MIRAI_MAX_ZIP_UNCOMPRESSED_BYTES", 100 * 1024 * 1024))  # zip-bomb guard
+ALLOWED_UPLOAD_EXTENSIONS = {".hea", ".dat", ".zip"}
+UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MB
+
+_default_cors_origins = [
+    "https://cardiomirai.com",
+    "https://www.cardiomirai.com",
+    "http://127.0.0.1:8000",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+_cors_env = os.environ.get("CARDIO_MIRAI_CORS_ORIGINS")
+CORS_ALLOWED_ORIGINS = (
+    [origin.strip() for origin in _cors_env.split(",") if origin.strip()]
+    if _cors_env
+    else _default_cors_origins
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ALLOWED_ORIGINS,
     allow_credentials=False,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -45,8 +105,170 @@ class ModelInferenceError(RuntimeError):
     """Raised when required morphology features cannot be inferred safely."""
 
 
+class UploadValidationError(HTTPException):
+    """Raised for any upload that fails size, type, or archive-safety checks."""
+
+    def __init__(self, status_code: int, detail: str) -> None:
+        super().__init__(status_code=status_code, detail=detail)
+
+
 def _safe_name(name: str) -> str:
-    return Path(name).name.replace("\\", "_").replace("/", "_")
+    """Return a filesystem-safe basename: no path separators, no traversal,
+    no null bytes, never empty."""
+    candidate = Path((name or "uploaded_ecg").replace("\x00", "")).name
+    candidate = candidate.replace("\\", "_").replace("/", "_").strip()
+    if candidate in ("", ".", ".."):
+        candidate = "uploaded_ecg"
+    return candidate
+
+
+def _resolve_within(base_dir: Path, candidate: Path) -> Path | None:
+    """Resolve `candidate` and confirm it stays inside `base_dir`.
+
+    Returns the resolved path, or None if it would escape `base_dir`
+    (covers zip-slip via '..' segments, absolute paths, and symlink tricks).
+    """
+    try:
+        base_resolved = base_dir.resolve()
+        resolved = candidate.resolve()
+    except OSError:
+        return None
+    if resolved != base_resolved and base_resolved not in resolved.parents:
+        return None
+    return resolved
+
+
+async def _save_uploads(files: Iterable[UploadFile], target_dir: Path) -> list[Path]:
+    """Save uploaded files with size limits, extension allowlisting, and
+    safe filenames. Unsupported extensions and oversized files are rejected
+    with a clear 4xx error rather than silently accepted."""
+    saved_paths: list[Path] = []
+    total_bytes = 0
+
+    for upload in files:
+        safe_name = _safe_name(upload.filename or "uploaded_ecg")
+        extension = Path(safe_name).suffix.lower()
+        if extension not in ALLOWED_UPLOAD_EXTENSIONS:
+            raise UploadValidationError(
+                status_code=400,
+                detail=(
+                    f"Unsupported file type '{extension or 'unknown'}'. "
+                    f"Allowed types: {', '.join(sorted(ALLOWED_UPLOAD_EXTENSIONS))}."
+                ),
+            )
+
+        path = target_dir / safe_name
+        resolved = _resolve_within(target_dir, path)
+        if resolved is None:
+            raise UploadValidationError(status_code=400, detail="Invalid upload filename.")
+
+        file_bytes = 0
+        try:
+            with resolved.open("wb") as output:
+                while True:
+                    chunk = await upload.read(UPLOAD_CHUNK_SIZE)
+                    if not chunk:
+                        break
+                    file_bytes += len(chunk)
+                    total_bytes += len(chunk)
+                    if file_bytes > MAX_FILE_SIZE_BYTES:
+                        raise UploadValidationError(
+                            status_code=413,
+                            detail=(
+                                f"File '{safe_name}' exceeds the maximum allowed size "
+                                f"of {MAX_FILE_SIZE_BYTES // (1024 * 1024)} MB."
+                            ),
+                        )
+                    if total_bytes > MAX_TOTAL_UPLOAD_BYTES:
+                        raise UploadValidationError(
+                            status_code=413,
+                            detail=(
+                                f"Total upload size exceeds the maximum allowed "
+                                f"{MAX_TOTAL_UPLOAD_BYTES // (1024 * 1024)} MB per request."
+                            ),
+                        )
+                    output.write(chunk)
+        except UploadValidationError:
+            resolved.unlink(missing_ok=True)
+            raise
+        finally:
+            await upload.close()
+
+        saved_paths.append(resolved)
+
+    return saved_paths
+
+
+def _extract_zip_files(paths: list[Path], target_dir: Path) -> list[Path]:
+    """Extract any .zip uploads with zip-slip protection, a member-count
+    cap, and an uncompressed-size cap (zip-bomb guard). Only .hea/.dat
+    members are extracted; anything else inside the archive is skipped."""
+    all_paths = list(paths)
+
+    for path in paths:
+        if path.suffix.lower() != ".zip":
+            continue
+
+        extract_dir = target_dir / f"{path.stem}_unzipped"
+        extract_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            with ZipFile(path) as archive:
+                infolist = archive.infolist()
+                if len(infolist) > MAX_ZIP_MEMBER_COUNT:
+                    raise UploadValidationError(
+                        status_code=400,
+                        detail=f"ZIP archive contains too many files (limit {MAX_ZIP_MEMBER_COUNT}).",
+                    )
+
+                total_uncompressed = sum(member.file_size for member in infolist)
+                if total_uncompressed > MAX_ZIP_UNCOMPRESSED_BYTES:
+                    raise UploadValidationError(
+                        status_code=400,
+                        detail=(
+                            "ZIP archive is too large when decompressed "
+                            f"(limit {MAX_ZIP_UNCOMPRESSED_BYTES // (1024 * 1024)} MB)."
+                        ),
+                    )
+
+                for member in infolist:
+                    if member.is_dir():
+                        continue
+
+                    extension = Path(member.filename).suffix.lower()
+                    if extension not in (".hea", ".dat"):
+                        # Only WFDB pair members are relevant; anything else
+                        # (including unexpected executables/scripts) is skipped.
+                        continue
+
+                    # Preserve relative structure (needed for basename-based
+                    # pairing) but sanitize every path segment and re-verify
+                    # containment — this is the zip-slip guard.
+                    normalized = member.filename.replace("\\", "/")
+                    segments = [
+                        seg for seg in normalized.split("/") if seg not in ("", ".", "..")
+                    ]
+                    if not segments:
+                        continue
+                    segments = [_safe_name(seg) for seg in segments]
+
+                    member_path = extract_dir.joinpath(*segments)
+                    resolved = _resolve_within(extract_dir, member_path)
+                    if resolved is None:
+                        logger.warning("Skipped unsafe ZIP member path: %s", member.filename)
+                        continue
+
+                    resolved.parent.mkdir(parents=True, exist_ok=True)
+                    with archive.open(member) as source, resolved.open("wb") as output:
+                        shutil.copyfileobj(source, output, length=UPLOAD_CHUNK_SIZE)
+                    all_paths.append(resolved)
+        except BadZipFile as exc:
+            logger.warning("Rejected invalid ZIP upload: %s", exc)
+            raise UploadValidationError(
+                status_code=400, detail="The uploaded file is not a valid ZIP archive."
+            ) from exc
+
+    return all_paths
 
 
 @lru_cache(maxsize=1)
@@ -150,28 +372,6 @@ def _feature_alias_value(features: dict, canonical_name: str):
         if name in features and not _feature_is_missing(features[name]):
             return features[name]
     return None
-
-
-async def _save_uploads(files: Iterable[UploadFile], target_dir: Path) -> list[Path]:
-    saved_paths: list[Path] = []
-    for upload in files:
-        path = target_dir / _safe_name(upload.filename or "uploaded_ecg")
-        with path.open("wb") as output:
-            shutil.copyfileobj(upload.file, output)
-        saved_paths.append(path)
-    return saved_paths
-
-
-def _extract_zip_files(paths: list[Path], target_dir: Path) -> list[Path]:
-    all_paths = list(paths)
-    for path in paths:
-        if path.suffix.lower() == ".zip":
-            extract_dir = target_dir / f"{path.stem}_unzipped"
-            extract_dir.mkdir(parents=True, exist_ok=True)
-            with ZipFile(path) as archive:
-                archive.extractall(extract_dir)
-            all_paths.extend([item for item in extract_dir.rglob("*") if item.is_file()])
-    return all_paths
 
 
 def _lead_quality(signal: np.ndarray) -> float:
@@ -1523,21 +1723,37 @@ async def analyze_wfdb(
     age: float | None = Form(None),
     sex: str | None = Form(None),
 ) -> dict:
+    # TemporaryDirectory() creates a process-private dir (mode 0o700 on
+    # POSIX) that is always removed on exit, including on error — uploaded
+    # patient files are never persisted beyond this request.
     with TemporaryDirectory() as temp_dir_name:
         temp_dir = Path(temp_dir_name)
-        saved = await _save_uploads(files, temp_dir)
-        paths = _extract_zip_files(saved, temp_dir)
+
+        try:
+            saved = await _save_uploads(files, temp_dir)
+            paths = _extract_zip_files(saved, temp_dir)
+        except UploadValidationError:
+            raise
+        except Exception:  # noqa: BLE001 - defensive: never leak internals
+            logger.exception("Unexpected error while saving/extracting uploaded files")
+            raise HTTPException(
+                status_code=400, detail="The uploaded files could not be processed."
+            )
+
         pairs = find_wfdb_pairs(paths)
         if not pairs:
             raise HTTPException(status_code=400, detail="No complete WFDB .hea/.dat record found.")
 
         try:
             signals, fields = load_wfdb_pair(pairs[0].record_path_without_extension)
-        except Exception as exc:
+        except Exception:
+            # Log full detail (may include temp-dir paths) server-side only;
+            # the client sees a generic message with no path/internal detail.
+            logger.exception("Failed to read WFDB record")
             raise HTTPException(
                 status_code=400,
-                detail=f"Analysis not performed because the digital ECG record could not be read: {exc}",
-            ) from exc
+                detail="Analysis not performed because the digital ECG record could not be read.",
+            )
         try:
             result = _analyze_signals(signals, fields, age=age, sex=sex)
         except ModelArtifactsMissing as exc:

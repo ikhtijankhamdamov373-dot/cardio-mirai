@@ -1,19 +1,13 @@
 """
 Tests for the existing Cardio MIRAI FastAPI backend.
 
-These tests are purely additive: they import the existing `cardiomirai.api`
-app unmodified and exercise it through FastAPI's TestClient. No endpoint
-logic is changed to make these pass.
-
-Note on MODEL_DIR: the deployed code expects trained model artifacts under
-`<project_root>/models/`, but the artifacts currently live at the project
-root itself (see FINDING in the accompanying change log). We monkeypatch
-MODEL_DIR to the actual artifact location for these tests so the happy-path
-model inference can be verified; this does not change production code or
-behavior.
+These tests exercise `cardiomirai.api` through FastAPI's TestClient,
+including the Priority 1 (model path resolution) and Priority 2 (upload
+security) fixes made directly to `cardiomirai/api.py`.
 """
 
 from pathlib import Path
+from zipfile import ZipFile
 
 import pytest
 from fastapi.testclient import TestClient
@@ -24,12 +18,45 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 @pytest.fixture()
-def client(monkeypatch):
-    # Point MODEL_DIR at the real artifact location (repo root) for this
-    # test run only; production code and files are untouched.
-    monkeypatch.setattr(api_module, "MODEL_DIR", api_module.PROJECT_ROOT)
-    api_module._load_model_artifacts.cache_clear()
+def client():
     return TestClient(api_module.app)
+
+
+# ---------------------------------------------------------------------------
+# Priority 1: model directory resolution
+# ---------------------------------------------------------------------------
+
+def test_model_dir_resolves_without_moving_artifacts():
+    """The artifacts ship at the project root, not <root>/models/ as the
+    README describes. _resolve_model_dir() must find them either way,
+    without any file being moved on disk."""
+    assert api_module.MODEL_DIR.exists()
+    for name in api_module._REQUIRED_MODEL_FILES:
+        assert (api_module.MODEL_DIR / name).exists()
+
+
+def test_model_dir_prefers_documented_models_subfolder(tmp_path, monkeypatch):
+    """If a properly populated models/ subfolder exists, it should be
+    preferred over the project-root fallback."""
+    models_dir = tmp_path / "models"
+    models_dir.mkdir()
+    for name in api_module._REQUIRED_MODEL_FILES:
+        (models_dir / name).write_text("stub")
+
+    monkeypatch.setattr(api_module, "PROJECT_ROOT", tmp_path)
+    resolved = api_module._resolve_model_dir()
+    assert resolved == models_dir
+
+
+def test_model_dir_respects_env_override(tmp_path, monkeypatch):
+    custom_dir = tmp_path / "custom-models"
+    custom_dir.mkdir()
+    for name in api_module._REQUIRED_MODEL_FILES:
+        (custom_dir / name).write_text("stub")
+
+    monkeypatch.setenv("CARDIO_MIRAI_MODEL_DIR", str(custom_dir))
+    resolved = api_module._resolve_model_dir()
+    assert resolved == custom_dir
 
 
 # ---------------------------------------------------------------------------
@@ -98,35 +125,151 @@ def test_zip_containing_valid_record_is_analyzed(client):
 # ---------------------------------------------------------------------------
 # Unsupported file rejection
 # ---------------------------------------------------------------------------
+# See test_unsupported_extension_is_rejected_before_saving and
+# test_unsupported_single_txt_file_is_rejected below — the Priority 2 fix
+# changed this from a generic "no complete record" message to an explicit
+# "Unsupported file type" message, rejected before the file is even saved.
 
-def test_unsupported_single_file_is_rejected(client):
+# ---------------------------------------------------------------------------
+# File-size limits (Priority 2)
+# ---------------------------------------------------------------------------
+
+def test_oversized_file_is_rejected_with_413(client, monkeypatch):
+    # Use a small limit so the test doesn't need to upload real megabytes.
+    monkeypatch.setattr(api_module, "MAX_FILE_SIZE_BYTES", 1024)
+    oversized = b"0" * (2048)
+    res = client.post(
+        "/api/analyze-wfdb",
+        files=[("files", ("huge.dat", oversized, "application/octet-stream"))],
+    )
+    assert res.status_code == 413
+    assert "exceeds the maximum allowed size" in res.json()["detail"]
+
+
+def test_oversized_total_upload_is_rejected_with_413(client, monkeypatch):
+    monkeypatch.setattr(api_module, "MAX_FILE_SIZE_BYTES", 10 * 1024 * 1024)
+    monkeypatch.setattr(api_module, "MAX_TOTAL_UPLOAD_BYTES", 1024)
+    payload = b"0" * 2048
+    res = client.post(
+        "/api/analyze-wfdb",
+        files=[("files", ("a.dat", payload, "application/octet-stream"))],
+    )
+    assert res.status_code == 413
+    assert "Total upload size exceeds" in res.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# Unsupported file type rejection (extension allowlist)
+# ---------------------------------------------------------------------------
+
+def test_unsupported_extension_is_rejected_before_saving(client):
+    res = client.post(
+        "/api/analyze-wfdb",
+        files=[("files", ("script.exe", b"MZ\x90\x00", "application/octet-stream"))],
+    )
+    assert res.status_code == 400
+    assert "Unsupported file type" in res.json()["detail"]
+
+
+def test_unsupported_single_txt_file_is_rejected(client):
     res = client.post(
         "/api/analyze-wfdb",
         files=[("files", ("notes.txt", b"not an ecg", "text/plain"))],
     )
     assert res.status_code == 400
-    assert "No complete WFDB" in res.json()["detail"]
+    assert "Unsupported file type" in res.json()["detail"]
 
 
 # ---------------------------------------------------------------------------
-# File-size limits
+# Filename sanitization
 # ---------------------------------------------------------------------------
-#
-# FINDING: the current /api/analyze-wfdb endpoint enforces no explicit
-# upload-size limit (see change log, "Security gaps identified"). This test
-# documents that behavior today rather than asserting a limit that does not
-# exist in the code, so it will not silently pass once a limit is added —
-# it is written to be updated in the security-hardening subphase.
 
-def test_current_endpoint_has_no_enforced_size_limit(client):
-    oversized = b"0" * (10 * 1024 * 1024)  # 10 MB junk payload
+def test_path_traversal_filename_is_sanitized_not_written_outside_target():
+    unsafe = "../../../etc/passwd.hea"
+    safe = api_module._safe_name(unsafe)
+    assert "/" not in safe
+    assert ".." not in safe
+    assert safe == "passwd.hea"
+
+
+def test_null_byte_in_filename_is_stripped():
+    safe = api_module._safe_name("record\x00.hea")
+    assert "\x00" not in safe
+
+
+# ---------------------------------------------------------------------------
+# ZIP archive validation and zip-slip protection
+# ---------------------------------------------------------------------------
+
+def test_malicious_zip_with_path_traversal_member_is_neutralized(client, tmp_path):
+    """A ZIP containing a '../../evil.hea' entry must not be written outside
+    the temporary extraction directory."""
+    evil_zip = tmp_path / "evil.zip"
+    with ZipFile(evil_zip, "w") as zf:
+        zf.writestr("../../../../tmp/evil_traversal.hea", "malicious header content")
+
+    with evil_zip.open("rb") as z:
+        res = client.post(
+            "/api/analyze-wfdb",
+            files=[("files", ("evil.zip", z, "application/zip"))],
+        )
+
+    # The malicious member is skipped entirely (no matching .dat, and it's
+    # not extracted outside the sandbox), so the request fails cleanly with
+    # "no complete record" rather than writing files outside the temp dir.
+    assert res.status_code == 400
+    assert not Path("/tmp/evil_traversal.hea").exists()
+
+
+def test_invalid_zip_file_returns_clear_400(client):
     res = client.post(
         "/api/analyze-wfdb",
-        files=[("files", ("huge.dat", oversized, "application/octet-stream"))],
+        files=[("files", ("broken.zip", b"not actually a zip file", "application/zip"))],
     )
-    # Documents current behavior: rejected for not forming a valid WFDB
-    # pair, NOT because of a size guard (none exists yet).
     assert res.status_code == 400
+    assert "not a valid ZIP archive" in res.json()["detail"]
+
+
+def test_zip_with_too_many_members_is_rejected(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(api_module, "MAX_ZIP_MEMBER_COUNT", 2)
+    many_zip = tmp_path / "many.zip"
+    with ZipFile(many_zip, "w") as zf:
+        for i in range(5):
+            zf.writestr(f"file_{i}.hea", "x")
+
+    with many_zip.open("rb") as z:
+        res = client.post(
+            "/api/analyze-wfdb",
+            files=[("files", ("many.zip", z, "application/zip"))],
+        )
+    assert res.status_code == 400
+    assert "too many files" in res.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# Internal error exposure
+# ---------------------------------------------------------------------------
+
+def test_unreadable_record_error_does_not_leak_temp_path(client, tmp_path):
+    """A .hea/.dat pair that parses as a pair but fails to load must not
+    leak the server's temp-directory path in the response."""
+    bad_hea = tmp_path / "broken.hea"
+    bad_dat = tmp_path / "broken.dat"
+    bad_hea.write_text("not a real wfdb header\n")
+    bad_dat.write_bytes(b"\x00\x01\x02")
+
+    with bad_hea.open("rb") as h, bad_dat.open("rb") as d:
+        res = client.post(
+            "/api/analyze-wfdb",
+            files=[
+                ("files", ("broken.hea", h, "application/octet-stream")),
+                ("files", ("broken.dat", d, "application/octet-stream")),
+            ],
+        )
+    assert res.status_code == 400
+    detail = res.json()["detail"]
+    assert "/tmp" not in detail
+    assert str(tmp_path) not in detail
 
 
 # ---------------------------------------------------------------------------
