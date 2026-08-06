@@ -1,6 +1,109 @@
 # Cardio MIRAI — Phase 1 Change Log
 
-Branch: `feature/nextjs-phase-1` (6 commits on top of `main`, not merged, not deployed)
+Branch: `feature/nextjs-phase-1` (7 commits on top of `main`, not merged, not deployed publicly)
+
+## Update: Preview verification round — no public deployment yet
+
+You asked for a preview deployment with screenshots, Lighthouse, and
+mobile/desktop views. Two things I could not do from this sandbox, stated
+plainly rather than faked:
+
+1. **No public preview URL.** I have no deployment credentials of my own
+   (no Vercel/Render API access). A Vercel and a Render connector exist in
+   your organization's catalog but aren't connected to your account yet —
+   connect one and I can likely trigger a real deployment directly, or use
+   the manual steps below.
+2. **No screenshots or Lighthouse score.** This sandbox's network is
+   restricted to package registries; it cannot reach Chrome's binary
+   download servers, so no headless browser can be installed here to render
+   pages or run Lighthouse. Both become possible once a real URL exists.
+
+### What I verified instead — both servers live in this sandbox
+
+Backend (`uvicorn`, port 8000) and frontend (`next start`, production
+build, port 3000, `NEXT_PUBLIC_API_BASE_URL` pointed at the local backend)
+were both actually run, not just built:
+
+```
+Backend direct:              GET /api/health          -> {"ok": true}
+Frontend server-side proxy:  GET /api/health           -> {"ok": true}   (frontend -> backend chain confirmed)
+
+Every page, HTTP status:
+/              -> 200
+/about         -> 200
+/contact       -> 200
+/ecg-ai        -> 200
+/calculators   -> 200
+/knowledge     -> 200
+/research      -> 200
+/ai-assistant  -> 200
+```
+
+`npx next build` also passed clean (TypeScript check + static generation,
+same as the prior round).
+
+### Get a real preview URL (manual, ~2 minutes) — DNS untouched
+
+```bash
+git clone https://github.com/ikhtijankhamdamov373-dot/cardio-mirai.git
+cd cardio-mirai
+git remote add phase1-bundle /path/to/cardio-mirai-phase1.bundle
+git fetch phase1-bundle feature/nextjs-phase-1:feature/nextjs-phase-1
+git checkout feature/nextjs-phase-1
+cd frontend
+npx vercel --cwd . # or: vercel deploy (requires a free Vercel account, first run prompts login)
+```
+
+When prompted, set `NEXT_PUBLIC_API_BASE_URL` to your Render backend URL
+in the Vercel project's environment settings. This creates a project-scoped
+preview URL (e.g. `cardio-mirai-frontend-xxxxx.vercel.app`) — `cardiomirai.com`
+DNS is untouched by this.
+
+Once that URL exists, either:
+- Run `npx lighthouse <url> --view` yourself for the score, and your
+  browser's screenshot/device-toolbar for mobile/desktop views, or
+- Share the URL here — if you have Claude for Chrome connected, I can
+  navigate it directly and capture real screenshots and a Lighthouse-style
+  audit.
+
+### Folder structure (frontend, verified against the actual filesystem)
+
+```
+frontend/
+├── app/
+│   ├── about/page.tsx
+│   ├── ai-assistant/page.tsx
+│   ├── api/health/route.ts
+│   ├── calculators/page.tsx
+│   ├── contact/page.tsx
+│   ├── ecg-ai/page.tsx
+│   ├── globals.css
+│   ├── knowledge/page.tsx
+│   ├── layout.tsx
+│   ├── page.tsx
+│   └── research/page.tsx
+├── components/
+│   ├── layout/ (BackendStatus, DeveloperCard, Footer, Navbar)
+│   └── ui/ (Badge, Button, Card, ComingSoon, Disclaimer, PageStatus)
+├── lib/api.ts
+├── __tests__/ (3 files, 12 tests)
+├── jest.config.js, jest.setup.js
+├── next.config.js, tailwind.config.ts, tsconfig.json, postcss.config.js
+├── package.json, package-lock.json
+└── README.md
+```
+
+(One note: an earlier setup command left a stray, empty, never-tracked
+directory named literally `frontend/{app` due to a shell brace-expansion
+quirk in this sandbox. It was never committed and has been deleted.)
+
+### Still true from the last round (unaffected by this verification pass)
+
+- 17/17 backend tests passing, 12/12 frontend tests passing
+- `main` untouched — confirmed via `git diff main..feature/nextjs-phase-1 --stat` against `render.yaml`, `requirements.txt`, and all model artifacts (empty diff)
+- No merge to `main`, no production DNS change, no public deployment
+
+---
 
 ## Update: Backend stabilization (this round)
 
