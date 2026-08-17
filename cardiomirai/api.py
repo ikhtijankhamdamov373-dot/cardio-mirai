@@ -19,6 +19,12 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from .wfdb_loader import find_wfdb_pairs, load_wfdb_pair, wfdb_metadata
+from .ecg import af_evidence as af_evidence_module
+from .ecg import data_sufficiency as ds
+from .ecg import lead_validation
+from .ecg import rr_analysis as rr_analysis_module
+from .ecg.lead_utils import unique_lead_names
+from .ecg.qrs_detection import detect_qrs as detect_qrs_adaptive
 
 
 app = FastAPI(title="Cardio MIRAI WFDB Backend", version="2.0.0-alpha")
@@ -707,35 +713,71 @@ def _assess_bbb(signals: np.ndarray, lead_names: list[str], qrs_duration_ms: flo
     return {"status": status, "qrs_duration_ms": qrs_duration_ms}
 
 
-def extract_basic_ecg_measurements(signals: np.ndarray, fs: float, lead_names: list[str], sex: str | None = None) -> dict:
+def extract_basic_ecg_measurements(
+    signals: np.ndarray,
+    fs: float,
+    lead_names: list[str],
+    sex: str | None = None,
+    precomputed_qrs: np.ndarray | None = None,
+) -> dict:
     array = np.asarray(signals, dtype=float)
     lead, selected_lead, _usable = _pick_lead(array, lead_names)
-    qrs = _detect_qrs(lead, fs)
-    rr_ms = np.diff(qrs) / fs * 1000.0 if len(qrs) > 1 else np.array([])
-    rhythm = assess_rhythm(rr_ms)
+    # Use the caller's already-validated (base + recovered) beat sequence
+    # when available, so RR-derived statistics are computed exactly once
+    # from the final beat sequence rather than re-detected independently
+    # here (previously a second, separate _detect_qrs call existed in this
+    # function, duplicating and risking drift from _analyze_signals's own
+    # detection).
+    qrs = precomputed_qrs if precomputed_qrs is not None else detect_qrs_adaptive(lead, fs).peak_samples
+    rr_analysis = rr_analysis_module.analyze_rr(qrs, fs)
+    rhythm = {
+        "mean_rr_ms": rr_analysis.mean_rr_ms,
+        "rr_sd_ms": rr_analysis.rr_sd_ms,
+        "rr_cv": rr_analysis.rr_cv,
+        "rmssd_ms": rr_analysis.rmssd_ms,
+        "heart_rate_bpm": rr_analysis.heart_rate_bpm,
+        "regularity": rr_analysis.regularity,
+    }
     p_features = _p_wave_features(lead, qrs, fs)
     qrs_duration = _qrs_duration_ms(lead, qrs, fs)
     qt = calculate_qt_qtc(lead, fs, qrs=qrs, rr_mean_ms=rhythm.get("mean_rr_ms"), sex=sex)
-    axis = estimate_qrs_axis(array, lead_names, fs, qrs=qrs)
+    lead_availability = lead_validation.assess_lead_availability(lead_names)
+
+    axis_ok, _ = lead_availability.available_for("qrs_axis")
+    axis = estimate_qrs_axis(array, lead_names, fs, qrs=qrs) if axis_ok else {
+        "axis_deg": None, "classification": "unavailable", "method": lead_availability.unavailable_reason("qrs_axis"),
+    }
+    # ST-segment measurement itself is computed per-lead from whatever
+    # channels exist (kept as-is for research/debugging use), but anything
+    # that infers a *diagnostic conclusion* from it (STEMI, ischemia) is
+    # separately gated below in interpret_ecg_ensemble, where the
+    # territory-level lead requirements actually apply.
     st = assess_st_segment(array, lead_names, fs, qrs=qrs)
-    lvh = assess_lvh(array, lead_names, sex=sex)
-    bbb = _assess_bbb(array, lead_names, qrs_duration)
+    lvh_ok, _ = lead_availability.available_for("lvh")
+    lvh = assess_lvh(array, lead_names, sex=sex) if lvh_ok else {
+        "status": "unavailable", "sokolow_lyon_mv": None, "cornell_mv": None,
+        "reason": lead_availability.unavailable_reason("lvh"),
+    }
+    bbb_ok, _ = lead_availability.available_for("bbb_morphology")
+    bbb = _assess_bbb(array, lead_names, qrs_duration) if (qrs_duration is None or qrs_duration < 120.0 or bbb_ok) else {
+        "status": "Wide QRS flag; BBB morphology unavailable", "qrs_duration_ms": qrs_duration,
+        "reason": lead_availability.unavailable_reason("bbb_morphology"),
+    }
     fib_power, dominant_f = _fibrillatory_power(lead, fs)
-    rr_irregularity = min(
-        100.0,
-        (rhythm.get("rr_cv") or 0.0) * 155.0
-        + (rhythm.get("rmssd_ms") or 0.0) / 3.2
-        + (100.0 - p_features["p_wave_presence_ratio"]) * 0.2,
-    )
+
     measurements = {
         "label": "Research ECG measurement output",
         "selected_lead": selected_lead,
+        "unique_leads": lead_availability.unique_leads,
+        "unique_lead_count": lead_availability.unique_lead_count,
+        "total_channels": lead_availability.total_channels,
         "heart_rate": {
             "heart_rate_bpm": rhythm["heart_rate_bpm"],
             "mean_rr_ms": rhythm["mean_rr_ms"],
             "r_peak_count": int(len(qrs)),
         },
         "rhythm_regularity": rhythm,
+        "rr_hrv_advanced": rr_analysis.to_dict(),  # full RR/HRV set incl. median/min/max RR, SDNN, pNN50, entropy, Poincare, RR Irregularity Index
         "p_wave_pr": {
             "pr_interval_ms": p_features.get("pr_mean_ms"),
             "pr_sd_ms": p_features.get("pr_sd_ms"),
@@ -754,7 +796,7 @@ def extract_basic_ecg_measurements(signals: np.ndarray, fs: float, lead_names: l
         "lvh": lvh,
         "bbb": bbb,
         "af_rhythm_markers": {
-            "rr_irregularity_index": round(rr_irregularity, 1),
+            "rr_irregularity_index": rr_analysis.rr_irregularity_index,
             "p_wave_absence_percent": round(100.0 - p_features.get("p_wave_presence_ratio", 0.0), 1),
             "fibrillatory_baseline_power": fib_power,
             "dominant_f_wave_hz": dominant_f,
@@ -1050,16 +1092,75 @@ def interpret_ecg_ensemble(
     sex: str | None,
     atrial_remodeling_score: float,
     af_detection_score: float,
+    af_evidence_result=None,
+    lead_availability=None,
 ) -> dict:
+    if lead_availability is None:
+        lead_availability = lead_validation.assess_lead_availability(lead_names)
+
     axis_qrs = measurements.get("axis", {})
-    p_axis = _wave_area_axis(signals, lead_names, "I", "aVF", fs, qrs, -0.25, -0.12)
-    t_axis = _wave_area_axis(signals, lead_names, "I", "aVF", fs, qrs, 0.14, 0.42)
+
+    p_axis_ok, _ = lead_availability.available_for("p_axis")
+    t_axis_ok, _ = lead_availability.available_for("t_axis")
+    p_axis = _wave_area_axis(signals, lead_names, "I", "aVF", fs, qrs, -0.25, -0.12) if p_axis_ok else {
+        "axis_deg": None, "classification": "unavailable", "method": lead_availability.unavailable_reason("p_axis")}
+    t_axis = _wave_area_axis(signals, lead_names, "I", "aVF", fs, qrs, 0.14, 0.42) if t_axis_ok else {
+        "axis_deg": None, "classification": "unavailable", "method": lead_availability.unavailable_reason("t_axis")}
+
     rhythm = _classify_rhythm(measurements, p_features, fib_power, qrs_duration_ms)
+
     chamber = _detect_chamber_enlargement(signals, lead_names, p_features, ptfv1_mv_ms, axis_qrs)
-    bbb = _assess_bbb(signals, lead_names, qrs_duration_ms)
+    atrial_ok, _ = lead_availability.available_for("chamber_enlargement_atrial")
+    lvh_ok, _ = lead_availability.available_for("lvh")
+    if not atrial_ok:
+        reason = lead_availability.unavailable_reason("chamber_enlargement_atrial")
+        chamber["right_atrial_enlargement"] = "unavailable"
+        chamber["left_atrial_enlargement"] = "unavailable"
+        chamber["biatrial_enlargement"] = "unavailable"
+        chamber["atrial_enlargement_reason"] = reason
+    if not lvh_ok:
+        chamber["lvh"] = {"status": "unavailable", "sokolow_lyon_mv": None, "cornell_mv": None, "reason": lead_availability.unavailable_reason("lvh")}
+    if not atrial_ok and not lvh_ok:
+        chamber["summary"] = [lead_availability.unavailable_reason("chamber_enlargement_atrial")]
+    elif not chamber.get("summary") or chamber["summary"] == ["No chamber enlargement criteria met by available rules."]:
+        # Only claim a clean negative when the leads needed for a real
+        # assessment were actually present; otherwise be explicit that this
+        # is a partial (not comprehensive) rule-out.
+        partial_note = []
+        if not atrial_ok:
+            partial_note.append("atrial enlargement: " + lead_availability.unavailable_reason("chamber_enlargement_atrial"))
+        if not lvh_ok:
+            partial_note.append("LVH: " + lead_availability.unavailable_reason("lvh"))
+        chamber["summary"] = (["No chamber enlargement criteria met in the leads available."] + partial_note) if (atrial_ok or lvh_ok) else partial_note
+
+    bbb_ok, _ = lead_availability.available_for("bbb_morphology")
+    bbb = _assess_bbb(signals, lead_names, qrs_duration_ms) if (qrs_duration_ms is None or qrs_duration_ms < 120.0 or bbb_ok) else {
+        "status": "unavailable", "qrs_duration_ms": qrs_duration_ms, "reason": lead_availability.unavailable_reason("bbb_morphology")}
+
     st_segment = measurements.get("st_segment", {})
-    stemi = _detect_stemi(st_segment, age, sex)
-    ischemia_infarction = _detect_ischemia_and_infarction(signals, lead_names, fs, qrs, st_segment)
+    stemi_ok, _ = lead_availability.available_for("stemi")
+    stemi = _detect_stemi(st_segment, age, sex) if stemi_ok else {
+        "status": "STEMI assessment not available -- complete diagnostic lead set required.",
+        "confidence": 0.0, "culprit_vessel": "unavailable",
+        "reasons": [lead_availability.unavailable_reason("stemi")],
+    }
+
+    ischemia_ok, _ = lead_availability.available_for("ischemia")
+    infarction_ok, _ = lead_availability.available_for("infarction")
+    if ischemia_ok or infarction_ok:
+        ischemia_infarction = _detect_ischemia_and_infarction(signals, lead_names, fs, qrs, st_segment)
+    else:
+        ischemia_infarction = {"ischemia": [], "infarction": []}
+    # ischemia/infarction stay arrays (existing frontend does
+    # `interpretation.ischemia || []`) -- real availability status is
+    # carried in these sibling fields instead of changing that type.
+    ischemia_infarction["ischemia_status"] = ds.available(None) if ischemia_ok else ds.unavailable(lead_availability.unavailable_reason("ischemia"))
+    ischemia_infarction["infarction_status"] = ds.available(None) if infarction_ok else ds.unavailable(lead_availability.unavailable_reason("infarction"))
+    if not ischemia_ok:
+        ischemia_infarction["ischemia"] = []
+    if not infarction_ok:
+        ischemia_infarction["infarction"] = []
+
     t_waves = _analyze_t_waves(signals, lead_names, fs, qrs)
     qt = measurements.get("qt_qtc", {})
     pr_ms = measurements.get("p_wave_pr", {}).get("pr_interval_ms")
@@ -1097,28 +1198,47 @@ def interpret_ecg_ensemble(
     if atrial_remodeling_score >= 70.0:
         hf_points += 1
         hf_reasons.append("PTB-XL atrial remodeling probability is high.")
-    hf_probability = "low" if hf_points <= 1 else "intermediate" if hf_points <= 3 else "high"
-    mortality = {
-        "30_day": "unavailable - requires validated outcome model",
-        "1_year": "unavailable - requires validated outcome model",
-        "5_year": "unavailable - requires validated outcome model",
-        "required_future_inputs": ["validated ECG deep model", "clinical variables", "STELA registry or external outcome cohort"],
-    }
+    # "Heart failure probability" was never backed by a validated model --
+    # relabeled as an explicit experimental flag (Priority 8) rather than a
+    # probability, and removed from the headline interpretation text below.
+    hf_flag_category = "low" if hf_points <= 1 else "intermediate" if hf_points <= 3 else "high"
+
+    af_category = af_evidence_result.category if af_evidence_result is not None else None
+    af_confidence = af_evidence_result.confidence if af_evidence_result is not None else None
+
+    stemi_line = stemi["status"] if stemi["status"] not in (None, "") else "STEMI assessment unavailable."
     final_lines = [
-        f"{rhythm['primary'].capitalize()}.",
-        f"Heart rate {measurements['heart_rate'].get('heart_rate_bpm') or 'unavailable'} bpm.",
-        f"QRS axis: {axis_qrs.get('classification', 'unavailable')}.",
-        "No STEMI criteria met by research rules." if stemi["status"].startswith("No STEMI") else stemi["status"],
-        f"AF probability: {af_detection_score}%.",
-        f"Heart failure probability: {hf_probability}.",
+        f"{rhythm['primary'].capitalize()} at {measurements['heart_rate'].get('heart_rate_bpm') or 'unavailable'} bpm.",
+        f"PR {intervals['pr_ms']} ms, QRS {intervals['qrs_ms']} ms, QTcF {intervals['qtc_fridericia_ms']} ms." if intervals['pr_ms'] is not None or intervals['qrs_ms'] is not None else "Intervals unavailable.",
+        f"Current AF evidence: {af_category or 'unavailable'}." + (f" ({af_confidence*100:.0f}% confidence)" if af_confidence is not None else ""),
+        f"Atrial remodeling score: {atrial_remodeling_score:.1f}% (research PTB-XL model, independent of AF evidence above).",
+        stemi_line,
     ]
     if intervals["flags"]:
         final_lines.append("Interval flags: " + ", ".join(intervals["flags"]) + ".")
-    if chamber["summary"]:
+    if chamber.get("summary"):
         final_lines.append("Chamber findings: " + "; ".join(chamber["summary"]) + ".")
-    report = "FINAL ECG INTERPRETATION\n" + "\n".join(final_lines) + "\nResearch interpretation only. Requires physician confirmation."
+    final_lines.append("Research ECG interpretation -- physician confirmation required.")
+    report = "FINAL ECG INTERPRETATION\n" + "\n".join(final_lines)
+
+    atrial_health = {
+        "current_rhythm": ds.available(rhythm["primary"], confidence=rhythm["confidence"] / 100.0, method="rule-based rhythm classifier"),
+        "current_af_evidence": af_evidence_result.to_dict() if af_evidence_result is not None else ds.unavailable("AF evidence not computed"),
+        "atrial_remodeling": ds.available(round(atrial_remodeling_score, 1), method="PTB-XL trained model (unchanged)"),
+        "future_af_risk": ds.unavailable("Not yet implemented -- requires a prospective, validated model combining ECG, clinical, and (eventually) echocardiographic variables."),
+        "note": "Current AF evidence assesses whether THIS ECG shows features compatible with atrial fibrillation right now. "
+                "Atrial remodeling is a separate research model estimating ECG features associated with atrial structural/electrical "
+                "remodeling. These are independent outputs and should not be conflated.",
+    }
+    heart_age = {
+        "status": "unavailable",
+        "value": None,
+        "label": "Cardio MIRAI Heart Age",
+        "note": "Coming soon -- multimodal ECG + echocardiography + clinical model. Not yet calculated; no placeholder score is generated.",
+    }
+
     interpretation = {
-        "module_version": "research-grade-rule-ensemble-v1",
+        "module_version": "research-grade-rule-ensemble-v1.1",
         "rhythm": rhythm,
         "heart_rate": measurements.get("heart_rate"),
         "axes": {"p_axis": p_axis, "qrs_axis": axis_qrs, "t_axis": t_axis},
@@ -1129,19 +1249,26 @@ def interpret_ecg_ensemble(
         "stemi": stemi,
         "ischemia": ischemia_infarction["ischemia"],
         "infarction": ischemia_infarction["infarction"],
+        "ischemia_status": ischemia_infarction["ischemia_status"],
+        "infarction_status": ischemia_infarction["infarction_status"],
+        "atrial_health": atrial_health,
+        "heart_age": heart_age,
         "af_analysis": {
             "rr_irregularity_index": measurements["af_rhythm_markers"]["rr_irregularity_index"],
             "p_wave_absence_percent": measurements["af_rhythm_markers"]["p_wave_absence_percent"],
             "f_wave_likelihood": measurements["af_rhythm_markers"]["fibrillatory_baseline_power"],
-            "atrial_remodeling_score": atrial_remodeling_score,
             "ptfv1_mv_ms": ptfv1_mv_ms,
             "p_wave_duration_ms": p_features.get("p_duration_ms"),
             "p_wave_dispersion": "unavailable - requires multi-lead P-wave delineation",
-            "calibrated_af_probability": "unavailable - calibration model not fitted",
-            "current_rule_af_probability": af_detection_score,
+            "current_af_evidence": af_evidence_result.to_dict() if af_evidence_result is not None else None,
+            "note": "rr_irregularity_index is an advanced/research metric, NOT an AF probability. See atrial_health.current_af_evidence for the categorical AF assessment.",
         },
-        "heart_failure_risk": {"category": hf_probability, "score_points": hf_points, "reasons": hf_reasons or ["No major ECG HF-risk flags in available features."]},
-        "mortality_risk": mortality,
+        "heart_failure_flag": {
+            "category": hf_flag_category,
+            "score_points": hf_points,
+            "reasons": hf_reasons or ["No major ECG HF-risk flags in available features."],
+            "note": "Experimental ECG feature flag -- not a validated heart-failure probability or risk model.",
+        },
         "explainability": {
             "top_reasons": rhythm["reasons"] + stemi.get("reasons", [])[:3] + hf_reasons,
             "model_blending": ["PTB-XL atrial remodeling model preserved", "rule-based ECG interpretation", "digital signal processing measurements", "future deep learning modules can be added independently"],
@@ -1290,75 +1417,75 @@ def _analyze_signals(signals, fields: dict, age: float | None = None, sex: str |
     metadata_age, metadata_sex = _parse_demographics_from_fields(fields)
     measurement_sex = sex if sex is not None else metadata_sex
     lead, selected_lead, usable_leads = _pick_lead(array, lead_names)
-    qrs = _detect_qrs(lead, fs)
-    rr_ms = np.diff(qrs) / fs * 1000.0 if len(qrs) > 1 else np.array([])
 
-    rr_mean = float(np.mean(rr_ms)) if rr_ms.size else 0.0
-    rr_sd = float(np.std(rr_ms)) if rr_ms.size else 0.0
-    rr_cv = float(rr_sd / rr_mean) if rr_mean else 0.0
-    rmssd = float(math.sqrt(np.mean(np.diff(rr_ms) ** 2))) if rr_ms.size > 1 else 0.0
-    pnn50 = float(np.mean(np.abs(np.diff(rr_ms)) > 50.0) * 100.0) if rr_ms.size > 1 else 0.0
-    sampen = _sample_entropy(rr_ms)
-    shannon = _shannon_entropy(rr_ms)
-    sd1, sd2 = _poincare(rr_ms)
-    tpr = _turning_point_ratio(rr_ms)
+    # Adaptive detection: base (unchanged, ~4ms-precision-validated) detector
+    # plus an evidence-gated missed-beat recovery pass. ALL RR-derived
+    # features below are computed from this FINAL beat sequence -- never
+    # from the base-only detector output.
+    detection = detect_qrs_adaptive(lead, fs)
+    qrs = detection.peak_samples
+    recovered_beat_fraction = (
+        sum(1 for b in detection.beats if b.source == "recovered") / len(detection.beats) if detection.beats else 0.0
+    )
+
+    rr_analysis = rr_analysis_module.analyze_rr(qrs, fs)
+    rr_mean = rr_analysis.mean_rr_ms or 0.0
+    rr_cv = rr_analysis.rr_cv or 0.0
+    rmssd = rr_analysis.rmssd_ms or 0.0
+    pnn50 = rr_analysis.pnn50_percent or 0.0
+    sampen = rr_analysis.sample_entropy
+    shannon = rr_analysis.shannon_entropy
+    sd1, sd2 = rr_analysis.poincare_sd1, rr_analysis.poincare_sd2
+    tpr = rr_analysis.turning_point_ratio
+    rr_irregularity = rr_analysis.rr_irregularity_index or 0.0  # "RR Irregularity Index" -- advanced measurement only, NOT an AF probability (see af_evidence below)
+
     p_features = _p_wave_features(lead, qrs, fs)
     qrs_duration = _qrs_duration_ms(lead, qrs, fs)
     qtc = _qtc_ms(rr_mean, qrs_duration, p_features.get("pr_mean_ms"))
     ptfv1_value = _ptfv1(array, lead_names, qrs, fs)
-    basic_measurements = extract_basic_ecg_measurements(array, fs, lead_names, sex=measurement_sex)
+    # Share this exact final beat sequence with extract_basic_ecg_measurements
+    # rather than letting it re-detect independently (previously a second,
+    # separate _detect_qrs call existed there).
+    basic_measurements = extract_basic_ecg_measurements(array, fs, lead_names, sex=measurement_sex, precomputed_qrs=qrs)
     lead_count = int(array.shape[1]) if array.ndim > 1 else 1
+    lead_availability = lead_validation.assess_lead_availability(lead_names)
     quality = _signal_quality(lead, fs, len(qrs), usable_leads, lead_count)
     fib_power, dominant_f = _fibrillatory_power(lead, fs)
 
-    rr_irregularity = min(
-        100.0,
-        rr_cv * 155.0 + rmssd / 3.2 + pnn50 * 0.55 + sampen * 13.0 + shannon * 5.0 + tpr * 18.0,
-    )
     low_quality = quality["signal_quality_index"] < 50.0
-    moderate_quality = 50.0 <= quality["signal_quality_index"] <= 70.0
     acceptable_signal = quality["signal_quality_index"] > 70.0
-    high_rr_irregularity = rr_cv >= 0.18 or rr_irregularity >= 62.0
-    p_absence = p_features["p_wave_presence_ratio"] < 55.0
     p_unreliable = p_features["p_wave_presence_ratio"] == 0.0 and len(qrs) < 5
-    fibrillatory_activity = fib_power >= 0.55
-    af_gate_passed = high_rr_irregularity and p_absence and fibrillatory_activity and not low_quality
 
     p_presence = float(p_features["p_wave_presence_ratio"])
     missing_p_percent = float(p_features["missing_p_wave_percent"])
     pr_consistency = float(p_features["pr_consistency"])
-    af_score_raw = (
-        rr_irregularity * 0.28
-        + min(30.0, rr_cv * 110.0)
-        + min(18.0, rmssd / 5.0)
-        + min(14.0, pnn50 * 0.35)
-        + max(0.0, 70.0 - p_presence) * 0.28
-        + missing_p_percent * 0.18
-        + fib_power * 22.0
-        - max(0.0, p_presence - 70.0) * 0.45
-        - max(0.0, pr_consistency - 70.0) * 0.18
-        - (14.0 if rr_cv < 0.12 else 0.0)
-        - (10.0 if low_quality else 0.0)
-    )
-    if p_presence < 40.0 and high_rr_irregularity:
-        af_score_raw += 14.0
-    if af_gate_passed:
-        af_score_raw += 10.0
 
-    af_score = round(max(0.0, min(100.0, af_score_raw)), 1)
-    rhythm_score_cap_reasons: list[str] = []
-    if p_presence > 70.0 and rr_cv < 0.12:
-        af_score = min(af_score, 39.0)
-        rhythm_score_cap_reasons.append("Sinus rhythm pattern likely: P-wave presence is >70% and RR coefficient of variation is <0.12.")
-    if low_quality:
-        af_score = min(af_score, 50.0)
-        rhythm_score_cap_reasons.append("Low confidence due to signal quality: signal quality index is <50.")
-    elif moderate_quality and not af_gate_passed:
-        af_score = min(af_score, 69.0)
-        rhythm_score_cap_reasons.append("Moderate signal quality and incomplete AF gate limit high-confidence rhythm labeling.")
-    if af_score >= 70.0 and not af_gate_passed:
-        af_score = 69.0
-        rhythm_score_cap_reasons.append("High AF likelihood requires RR irregularity, P-wave absence, fibrillatory activity, and acceptable signal quality.")
+    # CURRENT AF EVIDENCE (Priority 1/7): categorical, multi-feature,
+    # evidence-fused -- replaces the old RR-irregularity-dominated af_score.
+    # This is deliberately NOT a validated probability; see af_evidence.py
+    # for why (and for the Patient 2 case that drove this rewrite).
+    af_evidence_result = af_evidence_module.assess_af_evidence(
+        rr_cv=rr_cv,
+        rr_irregularity_index=rr_irregularity,
+        p_wave_presence_ratio=p_presence,
+        pr_consistency=pr_consistency,
+        fibrillatory_baseline_power=fib_power,
+        signal_quality_index=quality["signal_quality_index"],
+        beat_count=len(qrs),
+        recovered_beat_fraction=recovered_beat_fraction,
+    )
+    # Legacy numeric field kept populated (some existing call sites and the
+    # PTB-XL-vs-rhythm agreement heuristic below still read a 0-100 number),
+    # but it is now DERIVED from the corrected categorical assessment rather
+    # than being the primary output, and it is no longer presented anywhere
+    # as "AF probability" -- see af_evidence_result / af_evidence.category
+    # for the actual current AF evidence output.
+    _af_score_by_category = {"low": 25.0, "intermediate": 52.0, "high": 78.0}
+    af_score = round(
+        min(96.0, max(4.0, _af_score_by_category[af_evidence_result.category] + (af_evidence_result.confidence - 0.5) * 30.0)),
+        1,
+    )
+    af_gate_passed = af_evidence_result.category == "high"
 
     features_used, demographic_limitations = _model_feature_vector(
         fields=fields,
@@ -1386,23 +1513,18 @@ def _analyze_signals(signals, fields: dict, age: float | None = None, sex: str |
         measurement_sex,
         float(model_result["main_atrial_remodeling_score"]),
         float(af_score),
+        af_evidence_result,
+        lead_availability,
     )
 
-    if af_score >= 70.0 and af_gate_passed:
-        rhythm = "Pattern compatible with AF or irregular atrial rhythm"
-    elif af_score >= 40.0:
-        rhythm = "Indeterminate atrial rhythm"
+    if af_evidence_result.category == "high":
+        rhythm = "Pattern compatible with AF or irregular atrial rhythm -- current AF evidence: high"
+    elif af_evidence_result.category == "intermediate":
+        rhythm = "Indeterminate atrial rhythm -- current AF evidence: intermediate"
     else:
-        rhythm = "AF unlikely / sinus rhythm pattern likely"
+        rhythm = "AF unlikely / sinus rhythm pattern likely -- current AF evidence: low"
 
-    reasons: list[str] = []
-    if af_gate_passed:
-        reasons.append("AF gate passed: RR irregularity, P-wave absence, fibrillatory activity, and acceptable SQI are present.")
-    reasons.extend(rhythm_score_cap_reasons)
-    if p_features["p_wave_presence_ratio"] > 70.0:
-        reasons.append("Visible P waves before most QRS complexes reduce AF probability.")
-    if rr_cv < 0.12 and p_features["p_wave_presence_ratio"] > 70.0:
-        reasons.append("Regular RR intervals with visible P waves are more compatible with sinus rhythm.")
+    reasons: list[str] = list(af_evidence_result.evidence_against) + list(af_evidence_result.evidence_for)
     if not acceptable_signal:
         reasons.append("Signal quality limits confidence; high-confidence AF labeling is blocked.")
     if p_unreliable:
@@ -1455,12 +1577,26 @@ def _analyze_signals(signals, fields: dict, age: float | None = None, sex: str |
         "sampling_frequency": metadata["sampling_frequency"],
         "number_of_leads": metadata["number_of_leads"],
         "lead_names": metadata["lead_names"],
+        "unique_leads": lead_availability.unique_leads,
+        "unique_lead_count": lead_availability.unique_lead_count,
+        "is_duplicate_channel_set": lead_availability.is_duplicate_channel_set,
         "signal_duration_sec": metadata["duration_seconds"],
         "signal_quality_index": quality["signal_quality_index"],
         "basic_ecg_measurements": basic_measurements,
         "advanced_ecg_interpretation": advanced_interpretation,
         "qrs_count": int(len(qrs)),
+        "qrs_detection_detail": {
+            "base_detected": sum(1 for b in detection.beats if b.source == "base"),
+            "recovered": sum(1 for b in detection.beats if b.source == "recovered"),
+            "recovery_attempts": detection.recovery_attempts,
+            "recovery_accepted": detection.recovery_accepted,
+            "recovery_rejected": detection.recovery_rejected,
+        },
         "selected_lead": selected_lead,
+        # NOTE (Priority 1): af_detection_score/af_probability are DERIVED
+        # legacy numeric fields kept for backward compatibility only -- they
+        # are NOT a validated AF probability and should not be presented as
+        # one. Use atrial_health.current_af_evidence (categorical) instead.
         "af_detection_score": round(af_score, 1),
         "af_probability": round(af_score, 1),
         "atrial_remodeling_score": model_result["main_atrial_remodeling_score"],
@@ -1478,20 +1614,41 @@ def _analyze_signals(signals, fields: dict, age: float | None = None, sex: str |
         "confidence_score": confidence_score,
         "rhythm": rhythm,
         "signal_quality": quality,
+        # Default patient-facing sections (Priority 5/11) -- the frontend
+        # should read these for the simplified default view; everything
+        # under rr_features/p_wave_features/morphology_features below
+        # remains available for Advanced/Research Details.
+        "ecg_summary": {
+            "rhythm": ds.available(advanced_interpretation["rhythm"]["primary"], confidence=advanced_interpretation["rhythm"]["confidence"] / 100.0),
+            "heart_rate_bpm": ds.available(rr_analysis.heart_rate_bpm) if rr_analysis.heart_rate_bpm is not None else ds.unavailable("Insufficient beats detected."),
+            "pr_ms": ds.available(advanced_interpretation["intervals"]["pr_ms"]) if advanced_interpretation["intervals"]["pr_ms"] is not None else ds.unavailable("P-wave/PR not reliably measurable."),
+            "qrs_ms": ds.available(advanced_interpretation["intervals"]["qrs_ms"]) if advanced_interpretation["intervals"]["qrs_ms"] is not None else ds.unavailable("QRS duration not reliably measurable."),
+            "qtcf_ms": ds.available(advanced_interpretation["intervals"]["qtc_fridericia_ms"]) if advanced_interpretation["intervals"]["qtc_fridericia_ms"] is not None else ds.unavailable("QT/QTc not reliably measurable."),
+            "signal_quality": "GOOD" if quality["signal_quality_index"] >= 80 else "ACCEPTABLE" if quality["signal_quality_index"] >= 60 else "POOR" if quality["signal_quality_index"] >= 35 else "UNINTERPRETABLE",
+            "usable_unique_leads": f"{lead_availability.unique_lead_count} / 12",
+        },
+        "atrial_health": advanced_interpretation["atrial_health"],
+        "heart_age": advanced_interpretation["heart_age"],
         "rr_features": {
-            "rr_mean_ms": round(rr_mean, 1),
-            "rr_sd_ms": round(rr_sd, 1),
-            "heart_rate_bpm": round(60000.0 / rr_mean, 1) if rr_mean else 0.0,
-            "rr_cv": round(rr_cv, 3),
-            "sdnn_ms": round(rr_sd, 1),
-            "rmssd_ms": round(rmssd, 1),
-            "pnn50_percent": round(pnn50, 1),
-            "sample_entropy": round(sampen, 3),
-            "shannon_entropy": round(shannon, 3),
-            "poincare_sd1_ms": round(sd1, 1),
-            "poincare_sd2_ms": round(sd2, 1),
-            "turning_point_ratio": round(tpr, 3),
-            "rr_irregularity_index": round(rr_irregularity, 1),
+            "rr_mean_ms": rr_analysis.mean_rr_ms,
+            "rr_median_ms": rr_analysis.median_rr_ms,
+            "rr_min_ms": rr_analysis.min_rr_ms,
+            "rr_max_ms": rr_analysis.max_rr_ms,
+            "rr_sd_ms": rr_analysis.rr_sd_ms,
+            "heart_rate_bpm": rr_analysis.heart_rate_bpm,
+            "median_heart_rate_bpm": rr_analysis.median_heart_rate_bpm,
+            "instantaneous_hr_range": rr_analysis.to_dict()["instantaneous_hr_range"],
+            "rr_cv": rr_analysis.rr_cv,
+            "sdnn_ms": rr_analysis.sdnn_ms,
+            "rmssd_ms": rr_analysis.rmssd_ms,
+            "pnn50_percent": rr_analysis.pnn50_percent,
+            "sample_entropy": rr_analysis.sample_entropy,
+            "shannon_entropy": rr_analysis.shannon_entropy,
+            "poincare_sd1_ms": rr_analysis.poincare_sd1,
+            "poincare_sd2_ms": rr_analysis.poincare_sd2,
+            "turning_point_ratio": rr_analysis.turning_point_ratio,
+            "rr_irregularity_index": rr_analysis.rr_irregularity_index,
+            "note": "RR Irregularity Index is an advanced/research metric, NOT an AF probability.",
         },
         "p_wave_features": p_features,
         "morphology_features": {

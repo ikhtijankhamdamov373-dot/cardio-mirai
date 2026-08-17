@@ -1636,6 +1636,13 @@
         pWavePresenceRatio: Number(p.p_wave_presence_ratio ?? 0),
         rrIrregularityIndex: Number(rr.rr_irregularity_index ?? 0),
         afGatePassed: Boolean(result.af_gate_passed),
+        // New in ECG Core V1.1: default patient-facing sections + unique-lead reporting.
+        ecgSummary: result.ecg_summary || null,
+        atrialHealth: result.atrial_health || null,
+        heartAge: result.heart_age || null,
+        uniqueLeads: result.unique_leads || [],
+        uniqueLeadCount: result.unique_lead_count ?? null,
+        isDuplicateChannelSet: Boolean(result.is_duplicate_channel_set),
         qualityFeatures: [
           { name: "Signal quality index", value: signalQuality === null ? "Not available" : `${signalQuality}/100`, interpretation: signalQuality === null ? "Not available" : signalQuality > 70 ? "Prediction allowed" : signalQuality >= 50 ? "Low/moderate confidence only" : "High-confidence AF output blocked" },
           { name: "Missing data", value: formatPercent(q.missing_data_percent, 1), interpretation: "Missing/invalid sample check" },
@@ -1796,8 +1803,8 @@
       const bbb = interpretation.bundle_branch_block || {};
       const stemi = interpretation.stemi || {};
       const af = interpretation.af_analysis || {};
-      const hf = interpretation.heart_failure_risk || {};
-      const mortality = interpretation.mortality_risk || {};
+      const afEvidence = af.current_af_evidence || {};
+      const hfFlag = interpretation.heart_failure_flag || {};
       const ischemia = interpretation.ischemia || [];
       const infarction = interpretation.infarction || [];
       const report = (interpretation.physician_report || "").replace(/\n/g, "<br>");
@@ -1819,17 +1826,14 @@
           ${renderMeasurementCard("Chamber enlargement", (chamber.summary || []).join("; "), `RAE: ${chamber.right_atrial_enlargement || "NA"} | LAE: ${chamber.left_atrial_enlargement || "NA"}`)}
           ${renderMeasurementCard("Bundle branch block", bbb.status || "Not available", `QRS: ${bbb.qrs_duration_ms ?? "Not available"} ms`)}
           ${renderMeasurementCard("STEMI screen", stemi.status || "Not available", `Culprit: ${stemi.culprit_vessel || "NA"} | Confidence: ${stemi.confidence ?? "NA"}%`)}
-          ${renderMeasurementCard("AF analysis", `${af.current_rule_af_probability ?? "NA"}% rhythm likelihood`, `Remodeling: ${af.atrial_remodeling_score ?? "NA"}% | PTFV1: ${af.ptfv1_mv_ms ?? "NA"}`)}
-          ${renderMeasurementCard("Heart failure risk", hf.category || "Not available", (hf.reasons || []).join("; ") || "No ECG HF-risk reason")}
+          ${renderMeasurementCard("Current AF evidence (research)", (afEvidence.category || "not available").toUpperCase(), `RR irregularity index (advanced metric, not a probability): ${af.rr_irregularity_index ?? "NA"}`)}
+          ${renderMeasurementCard("Heart failure flag (experimental)", hfFlag.category || "Not available", (hfFlag.note || "") + " " + (hfFlag.reasons || []).join("; "))}
         </div>
         <table class="feature-table">
           <thead><tr><th>Advanced finding</th><th>Result</th><th>Basis</th></tr></thead>
           <tbody>${renderFeatureRows([
-            { name: "Ischemia", value: ischemia.length ? ischemia.map(item => item.territory).join(", ") : "No research ischemia flag", interpretation: ischemia.length ? ischemia.map(item => item.basis).join("; ") : "No contiguous ST-depression pattern detected" },
-            { name: "Infarction", value: infarction.length ? infarction.map(item => item.territory).join(", ") : "No research infarction flag", interpretation: infarction.length ? infarction.map(item => item.basis).join("; ") : "No pathologic Q-wave territory flag detected" },
-            { name: "30-day mortality risk", value: mortality["30_day"] || "Unavailable", interpretation: "Requires validated outcome model" },
-            { name: "1-year mortality risk", value: mortality["1_year"] || "Unavailable", interpretation: "Requires validated outcome model" },
-            { name: "5-year mortality risk", value: mortality["5_year"] || "Unavailable", interpretation: "Requires validated outcome model" }
+            { name: "Ischemia", value: ischemia.length ? ischemia.map(item => item.territory).join(", ") : (interpretation.ischemia_status?.status === "unavailable" ? "Not assessable" : "No research ischemia flag"), interpretation: ischemia.length ? ischemia.map(item => item.basis).join("; ") : (interpretation.ischemia_status?.reason || "No contiguous ST-depression pattern detected in available leads") },
+            { name: "Infarction", value: infarction.length ? infarction.map(item => item.territory).join(", ") : (interpretation.infarction_status?.status === "unavailable" ? "Not assessable" : "No research infarction flag"), interpretation: infarction.length ? infarction.map(item => item.basis).join("; ") : (interpretation.infarction_status?.reason || "No pathologic Q-wave territory flag detected in available leads") }
           ])}</tbody>
         </table>
         <div class="interpretation-box">
@@ -1878,6 +1882,83 @@
       };
     }
 
+    // --- ECG Core V1.1: default patient-facing sections (progressive disclosure) ---
+
+    function dsValue(field, unit = "") {
+      if (!field) return "Not available";
+      if (field.status === "unavailable" || field.status === "indeterminate") {
+        return `Not assessable${field.reason ? ` — ${field.reason}` : ""}`;
+      }
+      if (field.value === null || field.value === undefined) return "Not available";
+      return `${field.value}${unit}`;
+    }
+
+    function renderEcgSummaryCard(summary) {
+      if (!summary) {
+        return `<div class="analysis-note"><strong>ECG Summary</strong><br>Not available for this upload.</div>`;
+      }
+      return `
+        <div class="section-title" style="margin-top:8px">
+          <span></span>
+          <div><h3>ECG Summary</h3></div>
+        </div>
+        <div class="finding-grid">
+          ${renderMeasurementCard("Rhythm", dsValue(summary.rhythm), summary.rhythm?.confidence != null ? `Confidence: ${Math.round(summary.rhythm.confidence * 100)}%` : "")}
+          ${renderMeasurementCard("Heart rate", dsValue(summary.heart_rate_bpm, " bpm"), "")}
+          ${renderMeasurementCard("PR interval", dsValue(summary.pr_ms, " ms"), "")}
+          ${renderMeasurementCard("QRS duration", dsValue(summary.qrs_ms, " ms"), "")}
+          ${renderMeasurementCard("QTcF", dsValue(summary.qtcf_ms, " ms"), "")}
+          ${renderMeasurementCard("Signal quality", summary.signal_quality || "Not available", "")}
+          ${renderMeasurementCard("Usable unique leads", summary.usable_unique_leads || "Not available", "Duplicate/derived channels of the same physical lead are counted once")}
+        </div>
+      `;
+    }
+
+    function renderAtrialHealthCard(atrialHealth) {
+      if (!atrialHealth) {
+        return `<div class="analysis-note"><strong>Atrial Health</strong><br>Not available for this upload.</div>`;
+      }
+      const af = atrialHealth.current_af_evidence || {};
+      const category = (af.category || "unavailable").toUpperCase();
+      return `
+        <div class="section-title" style="margin-top:18px">
+          <span></span>
+          <div>
+            <h3>Atrial Health <span title="${(atrialHealth.note || '').replace(/"/g, '&quot;')}" style="cursor:help;color:#6b7280;font-weight:400;">(?)</span></h3>
+            <p>${atrialHealth.note || ""}</p>
+          </div>
+        </div>
+        <div class="finding-grid">
+          ${renderMeasurementCard("Current rhythm", dsValue(atrialHealth.current_rhythm), "")}
+          ${renderMeasurementCard("Current AF evidence", category, af.confidence != null ? `Confidence: ${Math.round(af.confidence * 100)}%` : "Not a validated probability")}
+          ${renderMeasurementCard("Atrial remodeling", dsValue(atrialHealth.atrial_remodeling, "%"), "Research PTB-XL model — independent of AF evidence above")}
+          ${renderMeasurementCard("Future AF risk", "Under development", atrialHealth.future_af_risk?.reason || "")}
+        </div>
+        ${(af.evidence_for && af.evidence_for.length) || (af.evidence_against && af.evidence_against.length) ? `
+        <div class="finding-box" style="margin-top:10px">
+          <b>AF evidence detail</b>
+          ${af.evidence_against && af.evidence_against.length ? `<div style="margin-top:6px"><em>Against AF:</em><ul class="list">${af.evidence_against.map(e => `<li>${e}</li>`).join("")}</ul></div>` : ""}
+          ${af.evidence_for && af.evidence_for.length ? `<div style="margin-top:6px"><em>For AF:</em><ul class="list">${af.evidence_for.map(e => `<li>${e}</li>`).join("")}</ul></div>` : ""}
+        </div>` : ""}
+      `;
+    }
+
+    function renderHeartAgeCard(heartAge) {
+      const label = heartAge?.label || "Cardio MIRAI Heart Age";
+      const note = heartAge?.note || "Coming soon.";
+      return `
+        <div class="section-title" style="margin-top:18px">
+          <span></span>
+          <div><h3>${label}</h3></div>
+        </div>
+        <div class="finding-box">
+          <b>Status</b>
+          <span>Coming soon</span>
+          <em>${note}</em>
+        </div>
+      `;
+    }
+
     // Render backend WFDB results. This path uses actual parsed digital ECG features.
     function renderBackendWfdbAnalysis(result) {
       const ecg = backendResultToEcgState(result);
@@ -1905,67 +1986,78 @@
       return `
         <div class="finding-head">
           <div>
-            <strong>${ecg.rhythm}</strong>
+            <strong>${ecg.atrialHealth?.current_rhythm?.value || ecg.rhythm}</strong>
             <span>ECG rhythm assessment from ${result.analysis_label || "digital waveform analysis"} with wfdb.rdsamp()</span>
           </div>
-          <div class="probability">${formatPercent(ecg.afDetectionScore, 1)}</div>
         </div>
-        <div class="finding-grid">
-          <div class="finding-box"><b>Input type</b><span>${ecg.inputType}</span></div>
-          <div class="finding-box"><b>Sampling frequency</b><span>${metadata.sampling_frequency ?? "Unknown"} Hz</span></div>
-          <div class="finding-box"><b>Number of leads</b><span>${metadata.number_of_leads ?? "Unknown"}</span></div>
-          <div class="finding-box"><b>Signal duration</b><span>${metadata.duration_seconds ? Number(metadata.duration_seconds).toFixed(2) : "Unknown"} s</span></div>
-          <div class="finding-box"><b>Lead names</b><span>${(metadata.lead_names || []).join(", ") || "Unknown"}</span></div>
-          <div class="finding-box"><b>Rhythm-based AF likelihood</b><span>${formatPercent(ecg.afDetectionScore, 1)}</span><em>${rhythmAssessmentLabel(ecg.afDetectionScore)}</em></div>
-          <div class="finding-box"><b>PTB-XL atrial remodeling probability</b><span>${formatPercent(ecg.atrialRemodelingScore, 1)}</span><em>${remodelingAssessmentLabel(ecg.atrialRemodelingScore)}</em></div>
-          <div class="finding-box"><b>PTB-XL logistic remodeling probability</b><span>${formatPercent(ecg.atrialRemodelingScoreLogistic, 1)}</span></div>
-          <div class="finding-box"><b>PTB-XL gradient boosting remodeling probability</b><span>${formatPercent(ecg.atrialRemodelingScoreGradientBoosting, 1)}</span></div>
-          <div class="finding-box"><b>Model used</b><span>${ecg.modelUsed}</span></div>
-          <div class="finding-box"><b>Target</b><span>${ecg.modelTarget}, not future AF prediction</span></div>
-          <div class="finding-box"><b>Model AUC</b><span>${ecg.modelAuc ?? "Unavailable"}</span></div>
-          <div class="finding-box"><b>Confidence score</b><span>${ecg.confidenceScore === null ? "Not available" : `${ecg.confidenceScore}/100`}</span></div>
-          <div class="finding-box"><b>Signal quality</b><span>${ecg.signalQuality === null ? "Not available" : `${ecg.signalQuality}/100 - ${ecg.qualityText}`}</span></div>
-        </div>
-        ${renderBackendWaveformPreview(ecg.waveformPreview)}
-        ${renderBasicEcgMeasurements(ecg.basicMeasurements)}
-        ${renderAdvancedEcgInterpretation(ecg.advancedInterpretation)}
-        <table class="feature-table">
-          <thead><tr><th>Signal quality feature</th><th>Value</th><th>Interpretation</th></tr></thead>
-          <tbody>${renderFeatureRows(ecg.qualityFeatures)}</tbody>
-        </table>
-        <table class="feature-table">
-          <thead><tr><th>Digital RR feature</th><th>Value</th><th>Interpretation</th></tr></thead>
-          <tbody>${renderFeatureRows(ecg.rhythmFeatures)}</tbody>
-        </table>
-        <table class="feature-table">
-          <thead><tr><th>P-wave feature</th><th>Value</th><th>Interpretation</th></tr></thead>
-          <tbody>${renderFeatureRows(ecg.pWaveFeatures)}</tbody>
-        </table>
-        <table class="feature-table">
-          <thead><tr><th>Morphology / spectral feature</th><th>Value</th><th>Interpretation</th></tr></thead>
-          <tbody>${renderFeatureRows(ecg.morphologyFeatures)}</tbody>
-        </table>
-        <table class="feature-table">
-          <thead><tr><th>PTB-XL model feature</th><th>Value</th><th>Interpretation</th></tr></thead>
-          <tbody>${renderFeatureRows(featureRows)}</tbody>
-        </table>
-        <table class="feature-table">
-          <thead><tr><th>Logistic contribution</th><th>Contribution</th><th>Direction</th></tr></thead>
-          <tbody>${renderFeatureRows(contributionRows)}</tbody>
-        </table>
-        <div class="finding-box">
-          <b>Reasons for research interpretation</b>
-          <ul class="list" style="margin-top:8px">${ecg.reasons.map(reason => `<li>${reason}</li>`).join("")}</ul>
-        </div>
-        <div class="finding-box">
-          <b>Top contributing features</b>
-          <div class="explain-bars" style="margin-top:10px">${renderExplainabilityChart(contributors)}</div>
-        </div>
-        ${ecg.warnings.length ? `<div class="analysis-note"><strong>Warnings:</strong><ul>${ecg.warnings.map(warning => `<li>${warning}</li>`).join("")}</ul></div>` : ""}
-        <div class="analysis-note"><strong>Limitations:</strong><ul>${ecg.limitations.map(item => `<li>${item}</li>`).join("")}</ul></div>
-        <div class="analysis-note">${ecg.calibrationNote}</div>
-        <div class="analysis-note">This is a research prototype and does not diagnose AF. Physician confirmation is required.</div>
-        <div class="analysis-note">The PTB-XL atrial remodeling probability is produced by a trained PTB-XL model. It is not a diagnosis and not a future AF prediction model.</div>
+        ${renderEcgSummaryCard(ecg.ecgSummary)}
+        ${renderAtrialHealthCard(ecg.atrialHealth)}
+        ${renderHeartAgeCard(ecg.heartAge)}
+        <details style="margin-top:18px">
+          <summary style="cursor:pointer;font-weight:600;padding:8px 0;">Key ECG Findings</summary>
+          ${renderAdvancedEcgInterpretation(ecg.advancedInterpretation)}
+        </details>
+        <details style="margin-top:12px">
+          <summary style="cursor:pointer;font-weight:600;padding:8px 0;">Advanced ECG Measurements</summary>
+          <div class="finding-grid">
+            <div class="finding-box"><b>Input type</b><span>${ecg.inputType}</span></div>
+            <div class="finding-box"><b>Sampling frequency</b><span>${metadata.sampling_frequency ?? "Unknown"} Hz</span></div>
+            <div class="finding-box"><b>Channels / unique leads</b><span>${metadata.number_of_leads ?? "Unknown"} channel(s) / ${ecg.uniqueLeadCount ?? "Unknown"} unique lead(s)</span>${ecg.isDuplicateChannelSet ? '<em>Some channels are duplicate/derived copies of the same physical lead</em>' : ''}</div>
+            <div class="finding-box"><b>Signal duration</b><span>${metadata.duration_seconds ? Number(metadata.duration_seconds).toFixed(2) : "Unknown"} s</span></div>
+            <div class="finding-box"><b>Lead names (raw channels)</b><span>${(metadata.lead_names || []).join(", ") || "Unknown"}</span></div>
+            <div class="finding-box"><b>Unique anatomical leads</b><span>${(ecg.uniqueLeads || []).join(", ") || "Unknown"}</span></div>
+            <div class="finding-box"><b>PTB-XL atrial remodeling probability</b><span>${formatPercent(ecg.atrialRemodelingScore, 1)}</span><em>${remodelingAssessmentLabel(ecg.atrialRemodelingScore)}</em></div>
+            <div class="finding-box"><b>PTB-XL logistic remodeling probability</b><span>${formatPercent(ecg.atrialRemodelingScoreLogistic, 1)}</span></div>
+            <div class="finding-box"><b>PTB-XL gradient boosting remodeling probability</b><span>${formatPercent(ecg.atrialRemodelingScoreGradientBoosting, 1)}</span></div>
+            <div class="finding-box"><b>Model used</b><span>${ecg.modelUsed}</span></div>
+            <div class="finding-box"><b>Target</b><span>${ecg.modelTarget}, not future AF prediction</span></div>
+            <div class="finding-box"><b>Model AUC</b><span>${ecg.modelAuc ?? "Unavailable"}</span></div>
+            <div class="finding-box"><b>Confidence score</b><span>${ecg.confidenceScore === null ? "Not available" : `${ecg.confidenceScore}/100`}</span></div>
+            <div class="finding-box"><b>Signal quality</b><span>${ecg.signalQuality === null ? "Not available" : `${ecg.signalQuality}/100 - ${ecg.qualityText}`}</span></div>
+          </div>
+          ${renderBackendWaveformPreview(ecg.waveformPreview)}
+          ${renderBasicEcgMeasurements(ecg.basicMeasurements)}
+          <table class="feature-table">
+            <thead><tr><th>Signal quality feature</th><th>Value</th><th>Interpretation</th></tr></thead>
+            <tbody>${renderFeatureRows(ecg.qualityFeatures)}</tbody>
+          </table>
+          <table class="feature-table">
+            <thead><tr><th>Digital RR feature</th><th>Value</th><th>Interpretation</th></tr></thead>
+            <tbody>${renderFeatureRows(ecg.rhythmFeatures)}</tbody>
+          </table>
+          <table class="feature-table">
+            <thead><tr><th>P-wave feature</th><th>Value</th><th>Interpretation</th></tr></thead>
+            <tbody>${renderFeatureRows(ecg.pWaveFeatures)}</tbody>
+          </table>
+          <table class="feature-table">
+            <thead><tr><th>Morphology / spectral feature</th><th>Value</th><th>Interpretation</th></tr></thead>
+            <tbody>${renderFeatureRows(ecg.morphologyFeatures)}</tbody>
+          </table>
+          <details style="margin-top:12px">
+            <summary style="cursor:pointer;font-weight:600;padding:8px 0;">Research Details — Model Explainability</summary>
+            <table class="feature-table">
+              <thead><tr><th>PTB-XL model feature</th><th>Value</th><th>Interpretation</th></tr></thead>
+              <tbody>${renderFeatureRows(featureRows)}</tbody>
+            </table>
+            <table class="feature-table">
+              <thead><tr><th>Logistic contribution</th><th>Contribution</th><th>Direction</th></tr></thead>
+              <tbody>${renderFeatureRows(contributionRows)}</tbody>
+            </table>
+            <div class="finding-box">
+              <b>Top contributing features</b>
+              <div class="explain-bars" style="margin-top:10px">${renderExplainabilityChart(contributors)}</div>
+            </div>
+          </details>
+          <div class="finding-box">
+            <b>Reasons for research interpretation</b>
+            <ul class="list" style="margin-top:8px">${ecg.reasons.map(reason => `<li>${reason}</li>`).join("")}</ul>
+          </div>
+          ${ecg.warnings.length ? `<div class="analysis-note"><strong>Warnings:</strong><ul>${ecg.warnings.map(warning => `<li>${warning}</li>`).join("")}</ul></div>` : ""}
+          <div class="analysis-note"><strong>Limitations:</strong><ul>${ecg.limitations.map(item => `<li>${item}</li>`).join("")}</ul></div>
+          <div class="analysis-note">${ecg.calibrationNote}</div>
+          <div class="analysis-note">The PTB-XL atrial remodeling probability is produced by a trained PTB-XL model. It is not a diagnosis and not a future AF prediction model.</div>
+        </details>
+        <div class="analysis-note">Research Prototype — Not a Medical Device — Physician Confirmation Required.</div>
       `;
     }
 
