@@ -23,7 +23,23 @@ from .wfdb_loader import find_wfdb_pairs, load_wfdb_pair, wfdb_metadata
 
 app = FastAPI(title="Cardio MIRAI WFDB Backend", version="2.0.0-alpha")
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-MODEL_DIR = PROJECT_ROOT / "models"
+
+# Model artifacts have historically been saved to a "models/" subdirectory
+# (see scripts/save_ptbxl_model_artifacts.py's default output_dir), but the
+# artifacts currently committed to this repository live at the project root
+# instead. Both layouts are supported so neither existing deployments nor a
+# future "models/" reorganization break: the first candidate directory that
+# contains every required artifact file wins.
+MODEL_DIR_CANDIDATES: tuple[Path, ...] = (
+    PROJECT_ROOT / "models",
+    PROJECT_ROOT,
+)
+MODEL_ARTIFACT_FILENAMES: tuple[str, ...] = (
+    "atrial_logistic_model.pkl",
+    "feature_scaler.pkl",
+    "feature_columns.json",
+    "model_metadata.json",
+)
 MODEL_MISSING_MESSAGE = "Trained PTB-XL model files not found. Please run training script first."
 MODEL_TARGET = "current atrial abnormality"
 logger = logging.getLogger(__name__)
@@ -49,17 +65,29 @@ def _safe_name(name: str) -> str:
     return Path(name).name.replace("\\", "_").replace("/", "_")
 
 
+def _resolve_model_dir() -> Path:
+    """Return the first candidate directory containing every required artifact.
+
+    Does not move, copy, or otherwise touch any files on disk — this only
+    decides where to read from.
+    """
+
+    for candidate in MODEL_DIR_CANDIDATES:
+        if all((candidate / filename).exists() for filename in MODEL_ARTIFACT_FILENAMES):
+            return candidate
+
+    checked = ", ".join(str(candidate) for candidate in MODEL_DIR_CANDIDATES)
+    raise ModelArtifactsMissing(f"{MODEL_MISSING_MESSAGE} Checked: {checked}")
+
+
 @lru_cache(maxsize=1)
 def _load_model_artifacts() -> dict:
-    logistic_path = MODEL_DIR / "atrial_logistic_model.pkl"
-    gb_path = MODEL_DIR / "atrial_gradient_boosting_model.pkl"
-    scaler_path = MODEL_DIR / "feature_scaler.pkl"
-    columns_path = MODEL_DIR / "feature_columns.json"
-    metadata_path = MODEL_DIR / "model_metadata.json"
-    required = [logistic_path, scaler_path, columns_path, metadata_path]
-    missing = [str(path) for path in required if not path.exists()]
-    if missing:
-        raise ModelArtifactsMissing(MODEL_MISSING_MESSAGE)
+    model_dir = _resolve_model_dir()
+    logistic_path = model_dir / "atrial_logistic_model.pkl"
+    gb_path = model_dir / "atrial_gradient_boosting_model.pkl"
+    scaler_path = model_dir / "feature_scaler.pkl"
+    columns_path = model_dir / "feature_columns.json"
+    metadata_path = model_dir / "model_metadata.json"
 
     with columns_path.open("r", encoding="utf-8") as handle:
         feature_columns = json.load(handle)

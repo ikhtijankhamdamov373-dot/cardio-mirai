@@ -6,3 +6,8 @@ scipy
 joblib
 pandas
 wfdb
+# Required to unpickle/run atrial_logistic_model.pkl, atrial_gradient_boosting_model.pkl,
+# and feature_scaler.pkl (LogisticRegression, GradientBoostingClassifier, StandardScaler).
+# Pinned to the version embedded in the committed .pkl files themselves (verified by
+# inspecting each file's _sklearn_version marker) to avoid unpickling incompatibilities.
+scikit-learn==1.8.0
