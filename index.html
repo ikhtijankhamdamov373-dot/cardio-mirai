@@ -1328,7 +1328,12 @@
     let currentImageQualityMeta = null;
     let latestClinicalResult = null;
     let latestEcgResult = null;
-    const WFDB_BACKEND_URL = "http://127.0.0.1:8000/api/analyze-wfdb";
+    // Same-origin relative path: the FastAPI app in cardiomirai/api.py serves
+    // both this page (GET /) and the analysis endpoint (POST /api/analyze-wfdb)
+    // from the same origin, in both local dev (uvicorn on 127.0.0.1:8000) and
+    // production. A relative path avoids hardcoding a host that only exists
+    // on the developer's own machine.
+    const WFDB_BACKEND_URL = "/api/analyze-wfdb";
 
     // Read a numeric input. Empty fields return null so optional data does not add risk.
     function readNumber(id) {
