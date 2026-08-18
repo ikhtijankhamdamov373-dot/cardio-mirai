@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from cardiomirai.ecg.qrs_detection import detect_qrs
 
-FIXTURES = Path(__file__).resolve().parent / "fixtures"
+FIXTURES = Path(__file__).resolve().parent / "fixtures" / "cases" / "patient_002"
 
 
 @pytest.fixture(scope="module")
