@@ -1,0 +1,33 @@
+{
+  "case_id": "patient_002",
+  "description": "21yo male, single-lead (Lead I raw + filtered duplicate, 20s @ 500Hz). Real clinical validation failure that drove ECG Core V1.1: original engine underdetected R-peaks (19 vs ~22 true), which inflated RR-CV/RMSSD enough to report 69% AF 'probability' despite 100% P-wave presence and confirmed sinus P-QRS association on clinical review. Has real manually-annotated R-peaks (.atr, symbol 'N') and T-wave markers (symbol 't') for the first ~9.8s.",
+  "record": "rec_2",
+  "demographics": {"age": 21, "sex": "male"},
+  "clinical_reference": {
+    "source": "cardiologist review of the tracing",
+    "approx_true_qrs_count": 22,
+    "approx_heart_rate_bpm": "mid-60s",
+    "rhythm": "sinus rhythm with prominent sinus arrhythmia",
+    "af_present": false,
+    "note": "insufficient lead information for reliable 12-lead STEMI/axis interpretation"
+  },
+  "expectations": {
+    "qrs_count": {"min": 20, "max": 23},
+    "heart_rate_bpm": {"min": 58.0, "max": 70.0},
+    "rhythm_primary_contains": "sinus arrhythmia",
+    "af_evidence_category_not": ["high"],
+    "unique_lead_count": 1,
+    "unique_leads": ["I"],
+    "is_duplicate_channel_set": true,
+    "lead_gated_unavailable": ["stemi", "qrs_axis", "p_axis", "t_axis", "chamber_atrial_enlargement", "lvh"],
+    "atrial_remodeling_status": "available"
+  },
+  "annotation_validation": {
+    "atr_symbol_true_beat": "N",
+    "atr_symbol_t_wave": "t",
+    "r_peak_match_tolerance_ms": 150,
+    "min_r_peak_sensitivity_in_annotated_window": 1.0,
+    "t_wave_false_positive_tolerance_ms": 80,
+    "max_t_wave_false_positives": 0
+  }
+}
