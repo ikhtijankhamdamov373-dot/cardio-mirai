@@ -28,6 +28,9 @@ from .ecg.qrs_detection import detect_qrs as detect_qrs_adaptive
 
 
 app = FastAPI(title="Cardio MIRAI WFDB Backend", version="2.0.0-alpha")
+
+from .heart_age.router import router as heart_age_router  # isolated; touches nothing else in this file
+app.include_router(heart_age_router)
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 # Model artifacts have historically been saved to a "models/" subdirectory
