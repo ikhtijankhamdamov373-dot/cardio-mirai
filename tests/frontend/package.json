@@ -1,0 +1,11 @@
+{
+  "name": "cardio-mirai-frontend-tests",
+  "private": true,
+  "description": "Frontend data-flow tests for index.html (Patient Assessment refactor). Run: npm install && npm test",
+  "scripts": {
+    "test": "node test_patient_assessment.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
+  }
+}

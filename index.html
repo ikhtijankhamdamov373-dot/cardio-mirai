@@ -1060,8 +1060,8 @@
   <main>
     <section class="section-head" id="screening">
       <div>
-        <h2>Cardiovascular Risk Screening</h2>
-        <p>Enter available patient data. Age is required; all other fields can be left blank if not known.</p>
+        <h2>Cardio MIRAI Patient Assessment</h2>
+        <p>Enter patient information once. Age is required; all other fields can be left blank if not known.</p>
       </div>
       <span class="badge">Live dashboard</span>
     </section>
@@ -1070,7 +1070,7 @@
       <section class="panel">
         <div class="panel-title">
           <strong>Patient assessment</strong>
-          <span class="badge">Clinical + echo</span>
+          <span class="badge">Clinical + labs + echo</span>
         </div>
         <div class="panel-body">
           <div class="form-section">Demographics</div>
@@ -1130,6 +1130,39 @@
                 <label class="choice"><input type="radio" name="family" value="no" checked>No known premature CVD</label>
               </div>
             </div>
+            <div class="field">
+              <label>Antihypertensive therapy</label>
+              <div class="segmented">
+                <label class="choice"><input type="radio" name="bpMeds" value="yes">Yes</label>
+                <label class="choice"><input type="radio" name="bpMeds" value="no" checked>No</label>
+              </div>
+            </div>
+            <div class="field">
+              <label>Statin therapy</label>
+              <div class="segmented">
+                <label class="choice"><input type="radio" name="statinMeds" value="yes">Yes</label>
+                <label class="choice"><input type="radio" name="statinMeds" value="no" checked>No</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">Laboratory data <span class="hint">(required for PREVENT CVD risk)</span></div>
+          <div class="fields">
+            <div class="field">
+              <label for="totalChol">Total cholesterol</label>
+              <input id="totalChol" type="number" min="50" max="500" value="200">
+              <span class="hint">mg/dL</span>
+            </div>
+            <div class="field">
+              <label for="hdlChol">HDL cholesterol</label>
+              <input id="hdlChol" type="number" min="10" max="150" value="60">
+              <span class="hint">mg/dL</span>
+            </div>
+            <div class="field">
+              <label for="egfr">eGFR</label>
+              <input id="egfr" type="number" min="1" max="200" value="90">
+              <span class="hint">mL/min/1.73m2</span>
+            </div>
           </div>
 
           <div class="form-section">Symptoms and ECG</div>
@@ -1177,7 +1210,7 @@
           </div>
 
           <div class="actions">
-            <button class="btn btn-main" type="button" id="calculateBtn">Calculate risk score</button>
+            <button class="btn btn-main" type="button" id="calculateBtn">Calculate / Update Assessment</button>
             <button class="btn btn-ghost" type="button" id="resetBtn">Reset</button>
           </div>
         </div>
@@ -1185,27 +1218,39 @@
 
       <aside class="result-stack">
         <section class="panel">
-          <div class="panel-title"><strong>Risk score</strong><span id="riskLabel" class="risk-pill moderate">Moderate</span></div>
+          <div class="panel-title"><strong>Cardiovascular Profile</strong><span id="riskLabel" class="risk-pill moderate">Moderate</span></div>
           <div class="panel-body">
-            <div class="score-card">
-              <div class="score-top">
-                <div>
-                  <div class="score-value"><span id="scoreValue">0</span><small>/100</small></div>
-                  <p id="scoreText" class="hint">Awaiting calculation.</p>
-                </div>
-              </div>
-              <div class="bar" aria-hidden="true"></div>
-              <div id="needle" class="needle" style="--score-pos: 0%;"></div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-title"><strong>Main risk factors</strong></div>
-          <div class="panel-body">
+            <p class="hint" id="scoreText">Awaiting calculation.</p>
             <ul id="factorList" class="list">
               <li>Complete the form to identify the dominant contributors.</li>
             </ul>
+            <details style="margin-top:10px">
+              <summary style="cursor:pointer;color:#6b7280;">Internal screening score (research/debug)</summary>
+              <div class="score-card" style="margin-top:8px">
+                <div class="score-top">
+                  <div>
+                    <div class="score-value"><span id="scoreValue">0</span><small>/100</small></div>
+                  </div>
+                </div>
+                <div class="bar" aria-hidden="true"></div>
+                <div id="needle" class="needle" style="--score-pos: 0%;"></div>
+              </div>
+              <p class="hint">This internal 0-100 score is Cardio MIRAI's own descriptive screening heuristic. It is NOT a validated cardiovascular event-risk probability -- see PREVENT CVD Risk below for the validated quantitative estimate.</p>
+            </details>
+          </div>
+        </section>
+
+        <section class="panel" id="prevent-risk-panel">
+          <div class="panel-title"><strong>PREVENT CVD Risk</strong><span class="badge">AHA PREVENT</span></div>
+          <div class="panel-body" id="preventRiskBody">
+            <div class="analysis-note">Enter labs (total cholesterol, HDL-C, eGFR) and calculate to see PREVENT CVD risk.</div>
+          </div>
+        </section>
+
+        <section class="panel" id="risk-age-panel">
+          <div class="panel-title"><strong>Cardiovascular Risk Age</strong></div>
+          <div class="panel-body" id="riskAgeBody">
+            <div class="analysis-note">Calculated together with PREVENT CVD Risk above.</div>
           </div>
         </section>
 
@@ -1276,31 +1321,9 @@
       <div class="section-title">
         <span></span>
         <div>
-          <h3>Cardio MIRAI Heart Age</h3>
-          <p>Evidence-Based Cardiovascular Risk Age (AHA PREVENT) -- separate from ECG analysis, computed independently.</p>
+          <h3>Cardio MIRAI AI Heart Age</h3>
+          <p>Clinical + ECG + Echocardiography</p>
         </div>
-      </div>
-      <div class="finding-grid">
-        <div class="finding-box"><label>Age (years)<br><input type="number" id="haAge" value="60" min="1" max="120"></label></div>
-        <div class="finding-box"><label>Sex<br><select id="haSex"><option value="female">Female</option><option value="male">Male</option></select></label></div>
-        <div class="finding-box"><label>Total cholesterol (mg/dL)<br><input type="number" id="haTC" value="200"></label></div>
-        <div class="finding-box"><label>HDL cholesterol (mg/dL)<br><input type="number" id="haHDL" value="60"></label></div>
-        <div class="finding-box"><label>Systolic BP (mmHg)<br><input type="number" id="haSBP" value="140"></label></div>
-        <div class="finding-box"><label>eGFR (mL/min/1.73m&sup2;)<br><input type="number" id="haEGFR" value="90"></label></div>
-        <div class="finding-box"><label><input type="checkbox" id="haBPMed"> On antihypertensive therapy</label></div>
-        <div class="finding-box"><label><input type="checkbox" id="haStatin"> On statin therapy</label></div>
-        <div class="finding-box"><label><input type="checkbox" id="haDM"> Diabetes</label></div>
-        <div class="finding-box"><label><input type="checkbox" id="haSmoke"> Current smoker</label></div>
-      </div>
-      <div class="analysis-actions">
-        <button class="btn btn-main" type="button" id="calcHeartAgeBtn">Calculate</button>
-      </div>
-      <div id="heartAgeResult" class="analysis-result">
-        <div class="analysis-note">Enter risk factors and press Calculate.</div>
-      </div>
-      <div class="section-title" style="margin-top:18px">
-        <span></span>
-        <div><h3>Cardio MIRAI AI Heart Age</h3></div>
       </div>
       <div class="finding-box">
         <b>Clinical + ECG + Echocardiography</b>
@@ -1308,57 +1331,6 @@
         <em>No AI Heart Age number is generated yet.</em>
       </div>
     </section>
-
-    <script>
-      (function () {
-        const btn = document.getElementById("calcHeartAgeBtn");
-        if (!btn) return;
-        btn.addEventListener("click", async function () {
-          const resultEl = document.getElementById("heartAgeResult");
-          resultEl.innerHTML = '<div class="analysis-note">Calculating...</div>';
-          const payload = {
-            age_years: Number(document.getElementById("haAge").value),
-            sex: document.getElementById("haSex").value,
-            total_chol_mgdl: Number(document.getElementById("haTC").value),
-            hdl_chol_mgdl: Number(document.getElementById("haHDL").value),
-            sbp_mmhg: Number(document.getElementById("haSBP").value),
-            on_antihypertensive_therapy: document.getElementById("haBPMed").checked,
-            on_statin_therapy: document.getElementById("haStatin").checked,
-            has_diabetes: document.getElementById("haDM").checked,
-            current_smoker: document.getElementById("haSmoke").checked,
-            egfr_ml_min_1_73m2: Number(document.getElementById("haEGFR").value),
-          };
-          try {
-            // Same relative-URL, same-origin fetch pattern as the existing WFDB call.
-            const response = await fetch("/api/v1/heart-age/calculate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-            });
-            if (!response.ok) {
-              const err = await response.json().catch(() => ({}));
-              resultEl.innerHTML = `<div class="analysis-note"><strong>Error:</strong> ${err.detail || response.statusText}</div>`;
-              return;
-            }
-            const data = await response.json();
-            resultEl.innerHTML = `
-              <div class="finding-grid">
-                <div class="finding-box"><b>Chronological Age</b><span>${data.chronological_age_years} years</span></div>
-                <div class="finding-box"><b>Evidence-Based Cardiovascular Risk Age</b><span>${data.risk_age_years !== null ? data.risk_age_years + " years" : (data.risk_age_boundary_label || "Not available")}</span></div>
-                <div class="finding-box"><b>Risk Age Gap</b><span>${data.risk_age_gap_years !== null ? (data.risk_age_gap_years >= 0 ? "+" : "") + data.risk_age_gap_years + " years" : "Not available"}</span></div>
-                <div class="finding-box"><b>10-Year Total CVD Risk</b><span>${data.risk_10yr_percent !== null ? data.risk_10yr_percent + "%" : (data.risk_10yr_unavailable_reason || "Not available")}</span></div>
-                <div class="finding-box"><b>30-Year Total CVD Risk</b><span>${data.risk_30yr_percent !== null ? data.risk_30yr_percent + "%" : (data.risk_30yr_unavailable_reason || "Not available")}</span></div>
-                <div class="finding-box"><b>Reference framework</b><span>${data.reference_framework}</span></div>
-              </div>
-              <div class="analysis-note">${data.disclaimer}</div>
-              <div class="analysis-note">${data.affiliation_note}</div>
-            `;
-          } catch (e) {
-            resultEl.innerHTML = `<div class="analysis-note"><strong>Error:</strong> ${e.message}</div>`;
-          }
-        });
-      })();
-    </script>
 
 
       <div class="panel-title">
@@ -1416,6 +1388,150 @@
     let currentImageQualityMeta = null;
     let latestClinicalResult = null;
     let latestEcgResult = null;
+
+    // Single shared source of truth for one patient's information, built from
+    // the master Patient Assessment form. Each downstream consumer (screening
+    // score, PREVENT/Risk Age, Integrated Report) reads only the slice it
+    // needs; none of them require the others to be present.
+    let patientState = {
+      demographics: {},
+      anthropometrics: {},
+      clinical: {},
+      labs: {},
+      symptoms: {},
+      echo: {},
+      // Getter, not a plain field: always reflects latestEcgResult directly,
+      // whichever of the existing ECG code paths (real backend, simulated
+      // image/PDF demo, or reset-to-null) last set it. This avoids touching
+      // any existing ECG assignment site and avoids two copies of ECG state
+      // ever being able to drift out of sync with each other.
+      get ecg() { return latestEcgResult; },
+    };
+
+    const PREVENT_REQUIRED_LAB_FIELDS = [
+      { key: "totalChol", label: "Total cholesterol" },
+      { key: "hdl", label: "HDL-C" },
+      { key: "egfr", label: "eGFR" },
+    ];
+
+    // Read the master form into the shared patientState object. Does not
+    // validate age (calculateRisk() already does that before calling this).
+    function readPatientStateFromForm() {
+      patientState.demographics = {
+        age: readNumber("age"),
+        sex: readRadio("sex"),
+      };
+      patientState.anthropometrics = {
+        bmi: readNumber("bmi"),
+        waist: readNumber("waist"),
+      };
+      patientState.clinical = {
+        sbp: readNumber("sbp"),
+        dbp: readNumber("dbp"),
+        smoking: readRadio("smoking"),
+        diabetes: readRadio("diabetes"),
+        family: readRadio("family"),
+        onAntihypertensive: readRadio("bpMeds") === "yes",
+        onStatin: readRadio("statinMeds") === "yes",
+      };
+      patientState.labs = {
+        totalChol: readNumber("totalChol"),
+        hdl: readNumber("hdlChol"),
+        egfr: readNumber("egfr"),
+      };
+      patientState.symptoms = {
+        chestPain: readRadio("chestPain"),
+        dyspnea: readRadio("dyspnea"),
+        ecgAbnormal: readRadio("ecgAbnormal"),
+      };
+      patientState.echo = {
+        lvef: readNumber("lvef"),
+        laSize: readNumber("laSize"),
+        eeRatio: readNumber("eeRatio"),
+      };
+      return patientState;
+    }
+
+    // Which PREVENT-required lab fields are missing from the current patientState.
+    function missingPreventFields() {
+      return PREVENT_REQUIRED_LAB_FIELDS.filter(f => !patientState.labs || patientState.labs[f.key] === null || patientState.labs[f.key] === undefined || Number.isNaN(patientState.labs[f.key])).map(f => f.label);
+    }
+
+    // Build the exact payload /api/v1/heart-age/calculate expects, from the shared patientState.
+    function buildPreventPayload() {
+      return {
+        age_years: patientState.demographics.age,
+        sex: patientState.demographics.sex,
+        total_chol_mgdl: patientState.labs.totalChol,
+        hdl_chol_mgdl: patientState.labs.hdl,
+        sbp_mmhg: patientState.clinical.sbp,
+        on_antihypertensive_therapy: Boolean(patientState.clinical.onAntihypertensive),
+        on_statin_therapy: Boolean(patientState.clinical.onStatin),
+        has_diabetes: patientState.clinical.diabetes === "yes",
+        current_smoker: patientState.clinical.smoking === "current",
+        egfr_ml_min_1_73m2: patientState.labs.egfr,
+      };
+    }
+
+    // Render the PREVENT CVD Risk and Cardiovascular Risk Age panels from the
+    // shared patientState -- calculates automatically once labs are present;
+    // shows exactly which fields are missing otherwise, never a false "0%".
+    async function updatePreventAndRiskAge() {
+      const preventBody = document.getElementById("preventRiskBody");
+      const riskAgeBody = document.getElementById("riskAgeBody");
+      if (!preventBody || !riskAgeBody) return;
+
+      const missing = missingPreventFields();
+      if (missing.length > 0) {
+        const pendingHtml = `
+          <div class="analysis-note"><strong>Pending.</strong> Additional information required to calculate PREVENT risk.</div>
+          <div class="analysis-note">Required: ${missing.map(m => `<br>&bull; ${m}`).join("")}</div>
+        `;
+        preventBody.innerHTML = pendingHtml;
+        riskAgeBody.innerHTML = `<div class="analysis-note">Pending -- requires the same information as PREVENT CVD Risk above.</div>`;
+        return;
+      }
+
+      preventBody.innerHTML = '<div class="analysis-note">Calculating...</div>';
+      riskAgeBody.innerHTML = '<div class="analysis-note">Calculating...</div>';
+      try {
+        const response = await fetch("/api/v1/heart-age/calculate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildPreventPayload()),
+        });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          const msg = `<div class="analysis-note"><strong>Error:</strong> ${err.detail || response.statusText}</div>`;
+          preventBody.innerHTML = msg;
+          riskAgeBody.innerHTML = msg;
+          return;
+        }
+        const data = await response.json();
+        patientState.preventResult = data;
+
+        preventBody.innerHTML = `
+          <div class="finding-grid">
+            <div class="finding-box"><b>10-Year Total CVD Risk</b><span>${data.risk_10yr_percent !== null ? data.risk_10yr_percent + "%" : (data.risk_10yr_unavailable_reason || "Not available")}</span></div>
+            <div class="finding-box"><b>30-Year Total CVD Risk</b><span>${data.risk_30yr_percent !== null ? data.risk_30yr_percent + "%" : (data.risk_30yr_unavailable_reason || "Not available")}</span></div>
+            <div class="finding-box"><b>Framework</b><span>${data.reference_framework}</span></div>
+          </div>
+        `;
+        riskAgeBody.innerHTML = `
+          <div class="finding-grid">
+            <div class="finding-box"><b>Chronological Age</b><span>${data.chronological_age_years} years</span></div>
+            <div class="finding-box"><b>Cardiovascular Risk Age</b><span>${data.risk_age_years !== null ? data.risk_age_years + " years" : (data.risk_age_boundary_label || "Not available")}</span></div>
+            <div class="finding-box"><b>Risk Age Gap</b><span>${data.risk_age_gap_years !== null ? (data.risk_age_gap_years >= 0 ? "+" : "") + data.risk_age_gap_years + " years" : "Not available"}</span></div>
+          </div>
+          <div class="analysis-note">${data.disclaimer}</div>
+          <div class="analysis-note">${data.affiliation_note}</div>
+        `;
+      } catch (e) {
+        const msg = `<div class="analysis-note"><strong>Error:</strong> ${e.message}</div>`;
+        preventBody.innerHTML = msg;
+        riskAgeBody.innerHTML = msg;
+      }
+    }
     // Same-origin relative path: the FastAPI app in cardiomirai/api.py serves
     // both this page (GET /) and the analysis endpoint (POST /api/analyze-wfdb)
     // from the same origin, in both local dev (uvicorn on 127.0.0.1:8000) and
@@ -1531,6 +1647,11 @@
 
       const result = calculateRiskModel(values);
       renderRiskResult(result);
+
+      // One form, one shared patient state: reused by PREVENT/Risk Age below
+      // without asking for age/sex/SBP/etc. a second time.
+      readPatientStateFromForm();
+      updatePreventAndRiskAge();
     }
 
     // Update the risk score, category, factor list, and recommendations in the dashboard.
@@ -1569,6 +1690,9 @@
       document.getElementById("lvef").value = 58;
       document.getElementById("laSize").value = 3.9;
       document.getElementById("eeRatio").value = 10;
+      document.getElementById("totalChol").value = 200;
+      document.getElementById("hdlChol").value = 60;
+      document.getElementById("egfr").value = 90;
       ["female", "never", "no"].forEach(value => {
         document.querySelectorAll(`input[value="${value}"]`).forEach(input => input.checked = true);
       });
@@ -2605,20 +2729,24 @@
 
     // Build a conservative integrated risk label from both existing modules.
     function determineIntegratedRisk(clinical, ecg) {
-      const cRank = clinicalRank(clinical.risk);
-      const eRank = ecgRank(ecg);
+      if (!clinical && !ecg) return "low";
+      const cRank = clinical ? clinicalRank(clinical.risk) : 0;
+      const eRank = ecg ? ecgRank(ecg) : 0;
 
-      const afScore = ecg.afDetectionScore ?? ecg.afProbability ?? 0;
-      if (clinical.risk === "high" || afScore > 80) return "high";
-      if (clinical.risk === "low" && afScore < 40) return "low";
-      if (clinical.risk === "low" && afScore >= 40 && afScore <= 70) return "intermediate";
-      if (clinical.risk === "moderate" && afScore > 60) return "intermediate";
+      const afEvidence = ecg?.atrialHealth?.current_af_evidence?.category;
+      const afScore = afEvidence ? { low: 20, intermediate: 55, high: 85 }[afEvidence] : (ecg?.afDetectionScore ?? ecg?.afProbability ?? 0);
+      if (clinical?.risk === "high" || afScore > 80) return "high";
+      if ((!clinical || clinical.risk === "low") && afScore < 40) return "low";
+      if (clinical?.risk === "low" && afScore >= 40 && afScore <= 70) return "intermediate";
+      if (clinical?.risk === "moderate" && afScore > 60) return "intermediate";
       if (cRank + eRank >= 2) return "intermediate";
       return "low";
     }
 
     // Confidence rises when the clinical and ECG modules agree and falls with disagreement or low ECG quality.
+    // Tolerant of either module being unavailable -- confidence is simply lower, not an error.
     function determineIntegratedConfidence(clinical, ecg, overallRisk) {
+      if (!clinical || !ecg) return 35; // one module missing: reduced but not zero confidence
       const cRank = clinicalRank(clinical.risk);
       const eRank = ecgRank(ecg);
       const agreementPenalty = Math.abs(cRank - eRank) * 12;
@@ -2631,6 +2759,7 @@
 
     // Extract the most important clinical contributors already produced by the calculator.
     function clinicalSummaryItems(clinical) {
+      if (!clinical) return { factors: [], echo: [] };
       const factors = clinical.factors.length
         ? clinical.factors.slice(0, 4).map(item => `${item.label}: ${item.detail}`)
         : ["No major clinical contributors identified from entered data"];
@@ -2641,23 +2770,46 @@
       };
     }
 
-    // Compose physician-style wording without diagnostic certainty.
+    // Compose physician-style wording without diagnostic certainty. Tolerant of
+    // either module being unavailable, and prefers the canonical Current AF
+    // Evidence category over the legacy numeric afDetectionScore when present.
     function buildIntegratedInterpretation(clinical, ecg, overallRisk) {
-      const clinicalText = clinical.risk === "high"
-        ? "Clinical risk markers are elevated"
-        : clinical.risk === "moderate"
-          ? "Clinical risk is moderate"
-          : "Clinical risk is low";
-      const afScore = ecg.afDetectionScore ?? ecg.afProbability ?? 0;
-      const remodelingScore = ecg.atrialRemodelingScore ?? 0;
-      const ecgText = afScore >= 70 && ecg.afGatePassed
-        ? "the ECG analysis is compatible with an irregular atrial rhythm pattern"
-        : afScore < 40 && remodelingScore >= 60
-          ? "AF is not detected on this ECG, but atrial remodeling features are present"
-        : afScore >= 40
-          ? "the ECG analysis suggests possible atrial electrical abnormality"
-          : "the ECG analysis is more consistent with low AF probability";
-      const qualityText = ecg.signalQuality < 60
+      if (!clinical && !ecg) {
+        return "No clinical or ECG data has been entered yet. Complete the Patient Assessment and/or upload an ECG to generate an integrated interpretation.";
+      }
+      const clinicalText = !clinical
+        ? "Cardiovascular Profile is not yet available"
+        : clinical.risk === "high"
+          ? "Cardiovascular Profile shows elevated risk factors"
+          : clinical.risk === "moderate"
+            ? "Cardiovascular Profile shows moderate risk factors"
+            : "Cardiovascular Profile shows low risk factors";
+
+      let ecgText;
+      if (!ecg) {
+        ecgText = "ECG analysis is not yet available";
+      } else {
+        const afEvidence = ecg.atrialHealth?.current_af_evidence?.category;
+        if (afEvidence) {
+          ecgText = afEvidence === "high"
+            ? "the ECG analysis shows current AF evidence: HIGH"
+            : afEvidence === "intermediate"
+              ? "the ECG analysis shows current AF evidence: INTERMEDIATE"
+              : "the ECG analysis shows current AF evidence: LOW";
+        } else {
+          // Legacy fallback for the simulated image/PDF demo path, which does not yet populate atrialHealth.
+          const afScore = ecg.afDetectionScore ?? ecg.afProbability ?? 0;
+          const remodelingScore = ecg.atrialRemodelingScore ?? 0;
+          ecgText = afScore >= 70 && ecg.afGatePassed
+            ? "the ECG analysis is compatible with an irregular atrial rhythm pattern"
+            : afScore < 40 && remodelingScore >= 60
+              ? "AF is not detected on this ECG, but the legacy atrial-abnormality research score is elevated"
+            : afScore >= 40
+              ? "the ECG analysis suggests possible atrial electrical abnormality"
+              : "the ECG analysis is more consistent with low AF evidence";
+        }
+      }
+      const qualityText = ecg && ecg.signalQuality < 60
         ? " Because ECG signal quality is limited, confidence is reduced and repeat ECG acquisition may be useful."
         : "";
       const overallText = overallRisk === "high"
@@ -2666,10 +2818,11 @@
           ? "The combined assessment suggests an intermediate probability of atrial remodeling or rhythm abnormality."
           : "The combined assessment suggests low integrated risk at this time.";
 
-      return `${clinicalText}; however, ${ecgText}. ${overallText} Repeat ECG or ambulatory rhythm monitoring may be considered if clinically indicated.${qualityText}`;
+      const joiner = clinical && ecg ? "; however, " : clinical || ecg ? ". " : "";
+      return `${clinicalText}${joiner}${clinical && ecg ? "" : ecgText.charAt(0).toUpperCase() + ecgText.slice(1)}${clinical && ecg ? ecgText : ""}. ${overallText} Repeat ECG or ambulatory rhythm monitoring may be considered if clinically indicated.${qualityText}`;
     }
 
-    // Generate recommendations from the combined clinical and ECG findings.
+    // Generate recommendations from the combined clinical and ECG findings. Tolerant of either being unavailable.
     function integratedRecommendations(overallRisk, clinical, ecg) {
       if (overallRisk === "high") {
         return [
@@ -2685,27 +2838,29 @@
           "Consider Holter monitoring if symptoms, abnormal ECG markers, or clinical concern are present.",
           "Review cardiovascular risk factors."
         ];
-        if (ecg.signalQuality < 60) items.unshift("Repeat ECG acquisition due to limited signal quality.");
+        if (ecg && ecg.signalQuality < 60) items.unshift("Repeat ECG acquisition due to limited signal quality.");
         return items;
       }
-      return [
+      const items = [
         "Continue healthy lifestyle.",
         "Repeat routine screening.",
         "Reassess if symptoms, new ECG abnormality, or clinical status changes."
       ];
+      if (!clinical) items.push("Complete the Patient Assessment form for a Cardiovascular Profile.");
+      if (!ecg) items.push("Upload an ECG for rhythm and atrial-health findings.");
+      return items;
     }
 
     // Render the third workflow: integrated physician-friendly report.
     function generateIntegratedReport() {
       const target = document.getElementById("integratedReport");
 
-      if (!latestClinicalResult) {
-        target.innerHTML = `<div class="analysis-note">Please run the Clinical Risk Calculator first.</div>`;
-        return;
-      }
+      const hasClinical = Boolean(latestClinicalResult);
+      const hasEcg = Boolean(latestEcgResult);
+      const hasPrevent = Boolean(patientState.preventResult);
 
-      if (!latestEcgResult) {
-        target.innerHTML = `<div class="analysis-note">Please upload an ECG and run the ECG Analyzer first.</div>`;
+      if (!hasClinical && !hasEcg) {
+        target.innerHTML = `<div class="analysis-note">Complete the Patient Assessment and/or upload an ECG to generate an integrated report. A report can be generated from whichever modules are available -- it does not require both.</div>`;
         return;
       }
 
@@ -2715,48 +2870,116 @@
       const interpretation = buildIntegratedInterpretation(latestClinicalResult, latestEcgResult, overallRisk);
       const recommendations = integratedRecommendations(overallRisk, latestClinicalResult, latestEcgResult);
       const riskLabel = { low: "Low", intermediate: "Intermediate", high: "High" }[overallRisk];
-      const clinicalRiskLabel = { low: "Low", moderate: "Moderate", high: "High" }[latestClinicalResult.risk];
-      const importantBiomarkers = [
-        `P-wave presence ratio: ${latestEcgResult.pWavePresenceRatio}%`,
-        `RR irregularity index: ${latestEcgResult.rrIrregularityIndex}/100`,
-        `PTB-XL atrial remodeling probability: ${formatPercent(latestEcgResult.atrialRemodelingScore, 1)}`,
-        `AF gate: ${latestEcgResult.afGatePassed ? "passed" : "not passed"}`
-      ];
-      const morphologyInterpretation = latestEcgResult.morphologyFeatures
-        .slice(0, 3)
-        .map(item => `${item.name}: ${item.value} (${item.interpretation})`);
+      const clinicalRiskLabel = hasClinical ? { low: "Low", moderate: "Moderate", high: "High" }[latestClinicalResult.risk] : null;
+
+      // --- Cardiovascular Profile (renamed from the old "Clinical Risk Summary") ---
+      const profileHtml = hasClinical ? `
+        <div class="summary-box">
+          <h4>Cardiovascular Profile</h4>
+          <ul>
+            <li>Key cardiovascular risk factors identified (internal screening score: ${latestClinicalResult.score}/100, research/debug only)</li>
+            ${clinicalSummaries.factors.map(item => `<li>${item}</li>`).join("")}
+          </ul>
+        </div>` : `
+        <div class="summary-box">
+          <h4>Cardiovascular Profile</h4>
+          <p class="analysis-note">Unavailable -- complete the Patient Assessment form.</p>
+        </div>`;
+
+      // --- PREVENT CVD Risk + Cardiovascular Risk Age ---
+      let preventHtml;
+      if (hasPrevent) {
+        const p = patientState.preventResult;
+        preventHtml = `
+        <div class="summary-box">
+          <h4>PREVENT Cardiovascular Risk</h4>
+          <ul>
+            <li>10-Year Total CVD Risk: ${p.risk_10yr_percent !== null ? p.risk_10yr_percent + "%" : (p.risk_10yr_unavailable_reason || "Not available")}</li>
+            <li>30-Year Total CVD Risk: ${p.risk_30yr_percent !== null ? p.risk_30yr_percent + "%" : (p.risk_30yr_unavailable_reason || "Not available")}</li>
+            <li>Cardiovascular Risk Age: ${p.risk_age_years !== null ? p.risk_age_years + " years" : (p.risk_age_boundary_label || "Not available")}</li>
+            <li>Risk Age Gap: ${p.risk_age_gap_years !== null ? (p.risk_age_gap_years >= 0 ? "+" : "") + p.risk_age_gap_years + " years" : "Not available"}</li>
+            <li>Framework: ${p.reference_framework}</li>
+          </ul>
+        </div>`;
+      } else {
+        const missing = missingPreventFields();
+        preventHtml = `
+        <div class="summary-box">
+          <h4>PREVENT Cardiovascular Risk</h4>
+          <p class="analysis-note"><strong>Pending.</strong> Additional information required: ${missing.length ? missing.join(", ") : "complete the Patient Assessment form"}. This is not a low-risk finding -- it means PREVENT has not yet been calculated.</p>
+        </div>`;
+      }
+
+      // --- ECG / Atrial Health (canonical atrialHealth field preferred, legacy fallback for the simulated demo path) ---
+      let ecgHtml;
+      if (hasEcg) {
+        const ecg = latestEcgResult;
+        const af = ecg.atrialHealth?.current_af_evidence;
+        const legacyScore = ecg.atrialRemodelingScore;
+        const afLine = af
+          ? `Current AF Evidence: ${af.category.toUpperCase()}${af.confidence != null ? ` (confidence ${Math.round(af.confidence * 100)}%)` : ""}`
+          : `Rhythm-based AF likelihood (legacy): ${formatPercent(ecg.afDetectionScore ?? ecg.afProbability, 1)}`;
+        const remodelingLine = `Legacy Atrial-Abnormality Research Score: ${formatPercent(legacyScore, 1)} (exploratory PTB-XL research model; not a current AF diagnosis, not a future AF prediction)`;
+        const morphologyInterpretation = (ecg.morphologyFeatures || [])
+          .slice(0, 3)
+          .map(item => `${item.name}: ${item.value} (${item.interpretation})`);
+        ecgHtml = `
+        <div class="summary-box">
+          <h4>ECG / Atrial Health</h4>
+          <ul>
+            <li>Input type: ${ecg.inputType || "ECG"}</li>
+            <li>Rhythm classification: ${ecg.rhythm}</li>
+            <li>${afLine}</li>
+            <li>${remodelingLine}</li>
+            <li>Future AF Risk: Under development</li>
+            <li>ECG quality: ${ecg.signalQuality}/100 - ${ecg.qualityText}</li>
+            ${morphologyInterpretation.map(item => `<li>${item}</li>`).join("")}
+          </ul>
+        </div>`;
+      } else {
+        ecgHtml = `
+        <div class="summary-box">
+          <h4>ECG / Atrial Health</h4>
+          <p class="analysis-note">Unavailable -- upload and analyze an ECG. This is different from a normal ECG finding: no ECG has been analyzed yet.</p>
+        </div>`;
+      }
+
+      // --- Echocardiography (from the same patientState.echo, no new score invented) ---
+      const echoValues = hasClinical ? patientState.echo : {};
+      const echoHasData = echoValues && (echoValues.lvef || echoValues.laSize || echoValues.eeRatio);
+      const echoHtml = echoHasData ? `
+        <div class="summary-box">
+          <h4>Echocardiography</h4>
+          <ul>
+            ${echoValues.lvef ? `<li>LVEF: ${echoValues.lvef}%</li>` : ""}
+            ${echoValues.laSize ? `<li>LA size: ${echoValues.laSize} cm</li>` : ""}
+            ${echoValues.eeRatio ? `<li>E/e': ${echoValues.eeRatio}</li>` : ""}
+          </ul>
+        </div>` : `
+        <div class="summary-box">
+          <h4>Echocardiography</h4>
+          <p class="analysis-note">Unavailable -- no echo values entered. This is different from a normal echocardiogram: none has been recorded.</p>
+        </div>`;
 
       target.innerHTML = `
         <div class="integrated-hero">
           <div>
             <h3>Overall Integrated Assessment</h3>
             <span class="risk-pill ${overallRisk === "high" ? "high" : overallRisk === "intermediate" ? "moderate" : "low"}">${riskLabel} overall risk</span>
-            <p style="margin-top:8px">Combined from the current clinical calculator output and current ECG analyzer output.</p>
+            <p style="margin-top:8px">Combined from whichever modules are currently available for this patient.</p>
+            ${!hasClinical || !hasEcg || !hasPrevent ? `<p class="analysis-note" style="margin-top:6px">${!hasClinical ? "Cardiovascular Profile unavailable. " : ""}${!hasPrevent ? "PREVENT risk pending. " : ""}${!hasEcg ? "ECG not yet analyzed." : ""}</p>` : ""}
           </div>
           <div class="confidence-meter">${confidence}<span>confidence</span></div>
         </div>
         <div class="summary-grid">
-          <div class="summary-box">
-            <h4>Clinical Risk Summary</h4>
-            <ul>
-              <li>Clinical score: ${latestClinicalResult.score}/100</li>
-              <li>Estimated baseline cardiovascular risk: ${clinicalRiskLabel}</li>
-              ${clinicalSummaries.factors.map(item => `<li>${item}</li>`).join("")}
-              ${clinicalSummaries.echo.map(item => `<li>${item}</li>`).join("")}
-            </ul>
-          </div>
-          <div class="summary-box">
-            <h4>ECG Analysis Summary</h4>
-            <ul>
-              <li>Input type: ${latestEcgResult.inputType || "ECG"}</li>
-              <li>Rhythm-based AF likelihood: ${formatPercent(latestEcgResult.afDetectionScore ?? latestEcgResult.afProbability, 1)}</li>
-              <li>PTB-XL atrial remodeling probability: ${formatPercent(latestEcgResult.atrialRemodelingScore, 1)}</li>
-              <li>Rhythm classification: ${latestEcgResult.rhythm}</li>
-              <li>ECG quality: ${latestEcgResult.signalQuality}/100 - ${latestEcgResult.qualityText}</li>
-              ${importantBiomarkers.map(item => `<li>${item}</li>`).join("")}
-              ${morphologyInterpretation.map(item => `<li>${item}</li>`).join("")}
-            </ul>
-          </div>
+          ${profileHtml}
+          ${preventHtml}
+          ${ecgHtml}
+          ${echoHtml}
+        </div>
+        <div class="summary-box">
+          <h4>Cardio MIRAI AI Heart Age</h4>
+          <p class="analysis-note">Clinical + ECG + Echocardiography. Research model under development. No AI Heart Age number is generated yet.</p>
         </div>
         <div class="interpretation-box">
           <strong>Integrated Interpretation</strong>
