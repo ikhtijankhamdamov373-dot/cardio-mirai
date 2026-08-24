@@ -1272,7 +1272,95 @@
       </div>
     </section>
 
-    <section class="panel integrated-card" id="integrated-report">
+    <section class="panel" id="heart-age-section">
+      <div class="section-title">
+        <span></span>
+        <div>
+          <h3>Cardio MIRAI Heart Age</h3>
+          <p>Evidence-Based Cardiovascular Risk Age (AHA PREVENT) -- separate from ECG analysis, computed independently.</p>
+        </div>
+      </div>
+      <div class="finding-grid">
+        <div class="finding-box"><label>Age (years)<br><input type="number" id="haAge" value="60" min="1" max="120"></label></div>
+        <div class="finding-box"><label>Sex<br><select id="haSex"><option value="female">Female</option><option value="male">Male</option></select></label></div>
+        <div class="finding-box"><label>Total cholesterol (mg/dL)<br><input type="number" id="haTC" value="200"></label></div>
+        <div class="finding-box"><label>HDL cholesterol (mg/dL)<br><input type="number" id="haHDL" value="60"></label></div>
+        <div class="finding-box"><label>Systolic BP (mmHg)<br><input type="number" id="haSBP" value="140"></label></div>
+        <div class="finding-box"><label>eGFR (mL/min/1.73m&sup2;)<br><input type="number" id="haEGFR" value="90"></label></div>
+        <div class="finding-box"><label><input type="checkbox" id="haBPMed"> On antihypertensive therapy</label></div>
+        <div class="finding-box"><label><input type="checkbox" id="haStatin"> On statin therapy</label></div>
+        <div class="finding-box"><label><input type="checkbox" id="haDM"> Diabetes</label></div>
+        <div class="finding-box"><label><input type="checkbox" id="haSmoke"> Current smoker</label></div>
+      </div>
+      <div class="analysis-actions">
+        <button class="btn btn-main" type="button" id="calcHeartAgeBtn">Calculate</button>
+      </div>
+      <div id="heartAgeResult" class="analysis-result">
+        <div class="analysis-note">Enter risk factors and press Calculate.</div>
+      </div>
+      <div class="section-title" style="margin-top:18px">
+        <span></span>
+        <div><h3>Cardio MIRAI AI Heart Age</h3></div>
+      </div>
+      <div class="finding-box">
+        <b>Clinical + ECG + Echocardiography</b>
+        <span>Research model under development</span>
+        <em>No AI Heart Age number is generated yet.</em>
+      </div>
+    </section>
+
+    <script>
+      (function () {
+        const btn = document.getElementById("calcHeartAgeBtn");
+        if (!btn) return;
+        btn.addEventListener("click", async function () {
+          const resultEl = document.getElementById("heartAgeResult");
+          resultEl.innerHTML = '<div class="analysis-note">Calculating...</div>';
+          const payload = {
+            age_years: Number(document.getElementById("haAge").value),
+            sex: document.getElementById("haSex").value,
+            total_chol_mgdl: Number(document.getElementById("haTC").value),
+            hdl_chol_mgdl: Number(document.getElementById("haHDL").value),
+            sbp_mmhg: Number(document.getElementById("haSBP").value),
+            on_antihypertensive_therapy: document.getElementById("haBPMed").checked,
+            on_statin_therapy: document.getElementById("haStatin").checked,
+            has_diabetes: document.getElementById("haDM").checked,
+            current_smoker: document.getElementById("haSmoke").checked,
+            egfr_ml_min_1_73m2: Number(document.getElementById("haEGFR").value),
+          };
+          try {
+            // Same relative-URL, same-origin fetch pattern as the existing WFDB call.
+            const response = await fetch("/api/v1/heart-age/calculate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+              const err = await response.json().catch(() => ({}));
+              resultEl.innerHTML = `<div class="analysis-note"><strong>Error:</strong> ${err.detail || response.statusText}</div>`;
+              return;
+            }
+            const data = await response.json();
+            resultEl.innerHTML = `
+              <div class="finding-grid">
+                <div class="finding-box"><b>Chronological Age</b><span>${data.chronological_age_years} years</span></div>
+                <div class="finding-box"><b>Evidence-Based Cardiovascular Risk Age</b><span>${data.risk_age_years !== null ? data.risk_age_years + " years" : (data.risk_age_boundary_label || "Not available")}</span></div>
+                <div class="finding-box"><b>Risk Age Gap</b><span>${data.risk_age_gap_years !== null ? (data.risk_age_gap_years >= 0 ? "+" : "") + data.risk_age_gap_years + " years" : "Not available"}</span></div>
+                <div class="finding-box"><b>10-Year Total CVD Risk</b><span>${data.risk_10yr_percent !== null ? data.risk_10yr_percent + "%" : (data.risk_10yr_unavailable_reason || "Not available")}</span></div>
+                <div class="finding-box"><b>30-Year Total CVD Risk</b><span>${data.risk_30yr_percent !== null ? data.risk_30yr_percent + "%" : (data.risk_30yr_unavailable_reason || "Not available")}</span></div>
+                <div class="finding-box"><b>Reference framework</b><span>${data.reference_framework}</span></div>
+              </div>
+              <div class="analysis-note">${data.disclaimer}</div>
+              <div class="analysis-note">${data.affiliation_note}</div>
+            `;
+          } catch (e) {
+            resultEl.innerHTML = `<div class="analysis-note"><strong>Error:</strong> ${e.message}</div>`;
+          }
+        });
+      })();
+    </script>
+
+
       <div class="panel-title">
         <strong>Integrated AI Report</strong>
         <span class="badge">Clinical + ECG</span>
