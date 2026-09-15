@@ -7,6 +7,7 @@ describe("Navbar", () => {
     const expected = [
       "Home",
       "ECG AI",
+      "Emergency Cardiology",
       "Clinical Calculators",
       "Knowledge Center",
       "Research Hub",

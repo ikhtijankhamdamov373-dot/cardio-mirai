@@ -96,6 +96,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ---------------------------------------------------------------------------
+# ACS research-prototype module (additive only — see cardiomirai/acs/).
+# Mounted under /api/acs/*, entirely separate from /api/analyze-wfdb and
+# /api/health above. Not a medical device. See cardiomirai/acs/core.py for
+# the deterministic rule implementations and their guideline citations.
+# ---------------------------------------------------------------------------
+from .acs.api import router as acs_router  # noqa: E402
+
+app.include_router(acs_router)
+
 
 class ModelArtifactsMissing(RuntimeError):
     """Raised when trained PTB-XL model artifacts are unavailable."""
