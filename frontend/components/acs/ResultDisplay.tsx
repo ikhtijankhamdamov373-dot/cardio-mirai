@@ -21,16 +21,26 @@ export function ResultDisplay({ result }: { result: StemiAssessResult }) {
 
   return (
     <div className="space-y-4">
-      <Card className={isEmergency ? "border-red/40 bg-red-soft/30" : ""}>
+      <Card className={isEmergency ? "border-red/40 bg-red-soft/30 ring-2 ring-red/20" : ""}>
         <div className="flex items-center gap-2">
           <Badge tone={URGENCY_TONE[result.urgency] ?? "neutral"}>
             Urgency: {result.urgency}
           </Badge>
         </div>
-        <p className={`mt-3 text-xl font-black ${isEmergency ? "text-red" : "text-navy"}`}>
-          {isEmergency ? "EMERGENCY ECG FINDING" : result.headline}
+        {isEmergency && (
+          <p className="mt-4 text-2xl sm:text-3xl font-black tracking-tight text-red">
+            EMERGENCY ECG FINDING
+          </p>
+        )}
+        <p
+          className={
+            isEmergency
+              ? "mt-1 text-xl sm:text-2xl font-bold text-navy"
+              : "mt-3 text-xl font-black text-navy"
+          }
+        >
+          {result.headline}
         </p>
-        {isEmergency && <p className="mt-1 text-lg font-bold text-navy">{result.headline}</p>}
 
         {result.criteria_met && result.contributing_measurements && result.contributing_measurements.length > 0 && (
           <div className="mt-4">
@@ -81,8 +91,9 @@ export function ResultDisplay({ result }: { result: StemiAssessResult }) {
       </Card>
 
       {result.criteria_met && result.thresholds_applied && (
-        <Card>
-          <p className="font-bold text-navy">Why was this flagged?</p>
+        <Card className="border-blue/30">
+          <Badge tone="blue">Explainability</Badge>
+          <p className="mt-2 font-bold text-navy text-lg">Why was this flagged?</p>
           <ul className="mt-2 space-y-1 text-sm text-ink">
             {result.contributing_measurements?.map((m) => {
               const isV2V3 = m.lead === "V2" || m.lead === "V3";

@@ -3,10 +3,12 @@ import { AcsTriageFlow } from "@/components/acs/AcsTriageFlow";
 export const metadata = { title: "Cardio MIRAI ACS — Live Demo" };
 
 export default function AcsDemoPage() {
-  // autoDemo pre-flags the synthetic-demo banner; the presenter still clicks
-  // "DEMO CASE" once to populate and advance to the ECG step, matching the
-  // documented 60-90s live-demo sequence exactly (Open -> Emergency
-  // Cardiology -> ACS/STEMI Triage -> Load Synthetic Demo -> Analyze ->
-  // ECG Quality -> ECG meets STEMI criteria -> Explainability -> Rural pathway).
-  return <AcsTriageFlow autoDemo={false} />;
+  // Auto-loads the synthetic demo case on mount (see AcsTriageFlow's
+  // useEffect), so the presenter never types clinical values live —
+  // landing here already shows Step 2 (ECG Input) pre-populated; only
+  // "Analyze" needs to be clicked. Matches the documented 60-90s sequence:
+  // Open -> Emergency Cardiology -> ACS/STEMI Triage -> (auto) Demo loaded
+  // -> Analyze -> ECG Quality -> ECG meets STEMI criteria -> Explainability
+  // -> Rural pathway.
+  return <AcsTriageFlow autoDemo={true} />;
 }

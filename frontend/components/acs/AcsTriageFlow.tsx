@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -26,7 +26,7 @@ export function AcsTriageFlow({ autoDemo = false }: { autoDemo?: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<StemiAssessResult | null>(null);
 
-  const loadDemoCase = () => {
+  const loadDemoCase = useCallback(() => {
     setIsDemo(true);
     setPatient({
       ...emptyPatientForm,
@@ -45,6 +45,25 @@ export function AcsTriageFlow({ autoDemo = false }: { autoDemo?: boolean }) {
     });
     setEcgInput({ leads: DEMO_CASE.leads, quality: DEMO_CASE.quality });
     setStep("ecg");
+  }, []);
+
+  // Presentation route (/acs/demo passes autoDemo=true) auto-loads the
+  // synthetic case on mount so the presenter never has to type clinical
+  // values live — they only click "Analyze" once landed on Step 2.
+  useEffect(() => {
+    if (autoDemo) {
+      loadDemoCase();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoDemo]);
+
+  const restartDemo = () => {
+    setStep("patient");
+    setPatient(emptyPatientForm);
+    setEcgInput(emptyEcgInput);
+    setIsDemo(false);
+    setResult(null);
+    setError(null);
   };
 
   const analyze = async () => {
@@ -86,15 +105,17 @@ export function AcsTriageFlow({ autoDemo = false }: { autoDemo?: boolean }) {
         </p>
       </header>
 
+      {isDemo && (
+        <div className="mt-6 rounded-card border-2 border-amber bg-amber/10 px-4 py-3 text-center">
+          <p className="text-base font-black text-amber tracking-wide">
+            SYNTHETIC DEMONSTRATION — NOT A REAL PATIENT
+          </p>
+        </div>
+      )}
+
       <section className="mt-8">
         <PlatformArchitecture />
       </section>
-
-      {isDemo && (
-        <div className="mt-6 rounded-card border border-amber/40 bg-amber/10 px-4 py-3 text-center">
-          <p className="font-bold text-amber">SYNTHETIC DEMONSTRATION — NOT A REAL PATIENT</p>
-        </div>
-      )}
 
       <div className="mt-6 flex justify-center">
         <Button variant="secondary" onClick={loadDemoCase}>
@@ -136,9 +157,14 @@ export function AcsTriageFlow({ autoDemo = false }: { autoDemo?: boolean }) {
           <>
             <QualityGate quality={ecgInput.quality} />
             <ResultDisplay result={result} />
-            <Button variant="secondary" onClick={() => setStep("ecg")}>
-              Back to ECG Input
-            </Button>
+            <div className="flex flex-wrap gap-3">
+              <Button variant="secondary" onClick={() => setStep("ecg")}>
+                Back to ECG Input
+              </Button>
+              <Button variant="ghost" onClick={restartDemo}>
+                Restart Demo
+              </Button>
+            </div>
           </>
         )}
       </section>

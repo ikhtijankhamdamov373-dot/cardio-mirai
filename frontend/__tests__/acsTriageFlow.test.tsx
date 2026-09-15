@@ -21,6 +21,14 @@ describe("AcsTriageFlow", () => {
     expect(screen.getByText(/Step 2 — ECG Input/i)).toBeInTheDocument();
   });
 
+  it("autoDemo=true (the /acs/demo presentation route) loads the case on mount with zero clicks", () => {
+    render(<AcsTriageFlow autoDemo={true} />);
+    expect(screen.getByText(/SYNTHETIC DEMONSTRATION — NOT A REAL PATIENT/i)).toBeInTheDocument();
+    expect(screen.getByText(/Step 2 — ECG Input/i)).toBeInTheDocument();
+    // Confirms the presenter only needs to click Analyze, never type values.
+    expect(screen.getByText(/^Analyze$/i)).toBeInTheDocument();
+  });
+
   it("running the demo case analysis calls the backend and shows the EMERGENCY headline", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
