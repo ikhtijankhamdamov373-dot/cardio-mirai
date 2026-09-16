@@ -52,11 +52,10 @@ export function EcgInputStep({
   // Image/PDF digitization workflow state
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
-  const [calibrationConfirmed, setCalibrationConfirmed] = useState(false);
-  const [layoutConfirmed, setLayoutConfirmed] = useState(false);
   const [imageStatus, setImageStatus] = useState<UploadStatus>("idle");
   const [imageError, setImageError] = useState<string | null>(null);
   const [imageResult, setImageResult] = useState<ImageAnalysisResult | null>(null);
+  const [showAnalysisDetails, setShowAnalysisDetails] = useState(false);
   const PAPER_SPEED_MM_S = 25;
   const GAIN_MM_PER_MV = 10;
 
@@ -123,11 +122,9 @@ export function EcgInputStep({
     }
   };
 
-  const handleImageSelect = (fileList: FileList | null) => {
+  const handleImageSelect = async (fileList: FileList | null) => {
     setImageResult(null);
     setImageError(null);
-    setCalibrationConfirmed(false);
-    setLayoutConfirmed(false);
     if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
     if (!fileList || fileList.length === 0) {
       setImageFile(null);
@@ -146,18 +143,21 @@ export function EcgInputStep({
     setImageFile(file);
     setImagePreviewUrl(file.type.startsWith("image/") ? URL.createObjectURL(file) : null);
     setImageStatus("ready");
+    await runImageDigitization(file);
   };
 
-  const runImageDigitization = async () => {
-    if (!imageFile) return;
+  const runImageDigitization = async (file?: File) => {
+    const target = file ?? imageFile;
+    if (!target) return;
     setImageStatus("uploading");
     setImageError(null);
     try {
+      // Standard calibration (25 mm/s, 10 mm/mV) and the common 3x4 +
+      // rhythm-strip layout are used automatically for this MVP — these
+      // are defaults, not OCR-detected values (see calibration_source:
+      // "default" in the response, rendered honestly in the result).
       const result = await analyzeEcgImage({
-        file: imageFile,
-        paperSpeedMmS: PAPER_SPEED_MM_S,
-        gainMmPerMv: GAIN_MM_PER_MV,
-        layout: "standard_3x4",
+        file: target,
         age: patient?.age ?? null,
         sex: patient?.sex ?? null,
         symptomatic: patient?.symptomatic,
@@ -175,8 +175,8 @@ export function EcgInputStep({
   const imageSteps = [
     { label: "Upload received", done: !!imageFile },
     { label: "Image quality checked", done: imageStatus === "success" || imageStatus === "uploading" },
-    { label: "ECG layout identified/confirmed", done: layoutConfirmed },
-    { label: "Calibration confirmed", done: calibrationConfirmed },
+    { label: "Supported layout recognized (3×4 + rhythm strip)", done: imageStatus === "success" || imageStatus === "uploading" },
+    { label: "Calibration applied (25 mm/s, 10 mm/mV)", done: imageStatus === "success" || imageStatus === "uploading" },
     { label: "Waveforms digitized", done: imageStatus === "success" },
     { label: "ECG measurements generated", done: imageStatus === "success" },
     { label: "ACS rules evaluated", done: imageStatus === "success" },
@@ -244,6 +244,7 @@ export function EcgInputStep({
             onChange={(e) => handleImageSelect(e.target.files)}
             className="mt-3 w-full text-sm"
           />
+          <p className="mt-1 text-xs text-muted">Select a file to begin — analysis starts automatically.</p>
 
           {imagePreviewUrl && (
             <div className="mt-3">
@@ -255,57 +256,27 @@ export function EcgInputStep({
 
           {imageFile && (
             <div className="mt-4 space-y-3">
-              <div>
-                <p className="text-xs font-bold text-ink">Calibration</p>
-                <p className="text-xs text-muted mb-1">
-                  For today&rsquo;s prototype, confirm the standard values rather than relying on automatic detection.
-                </p>
-                <Button
-                  variant={calibrationConfirmed ? "primary" : "secondary"}
-                  onClick={() => setCalibrationConfirmed(true)}
-                >
-                  Confirm {PAPER_SPEED_MM_S} mm/s, {GAIN_MM_PER_MV} mm/mV
-                </Button>
-                {calibrationConfirmed && (
-                  <p className="mt-1 text-xs text-green">
-                    Calibration confirmed by user: {PAPER_SPEED_MM_S} mm/s, {GAIN_MM_PER_MV} mm/mV
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <p className="text-xs font-bold text-ink">Detected layout</p>
-                <div className="mt-1 flex flex-wrap gap-2">
-                  <Button
-                    variant={layoutConfirmed ? "primary" : "secondary"}
-                    onClick={() => setLayoutConfirmed(true)}
-                  >
-                    Standard 3×4
-                  </Button>
-                  <Button variant="ghost" disabled>Standard 6×2 (unsupported)</Button>
-                  <Button variant="ghost" disabled>Other / unsupported</Button>
-                </div>
-              </div>
-
-              {calibrationConfirmed && layoutConfirmed && imageStatus !== "success" && (
-                <Button onClick={runImageDigitization} disabled={imageStatus === "uploading"}>
-                  {imageStatus === "uploading" ? "Digitizing…" : "Digitize ECG"}
-                </Button>
+              {imageStatus === "uploading" && <LoadingState label="Extracting waveform from image pixels…" />}
+              {imageStatus === "error" && imageError && (
+                <ErrorState message={imageError} onRetry={() => runImageDigitization()} />
               )}
 
-              {(imageFile) && (
+              <button
+                onClick={() => setShowAnalysisDetails((v) => !v)}
+                className="text-xs font-bold text-blue underline"
+              >
+                {showAnalysisDetails ? "Hide" : "Show"} Analysis Details
+              </button>
+              {showAnalysisDetails && (
                 <ul className="text-xs text-muted space-y-0.5">
                   {imageSteps.map((s, i) => (
                     <li key={s.label} className={s.done ? "text-green font-semibold" : ""}>
                       {i + 1}. {s.label} {s.done ? "✓" : ""}
                     </li>
                   ))}
+                  <li className="pt-1">Calibration: {PAPER_SPEED_MM_S} mm/s, {GAIN_MM_PER_MV} mm/mV (standard default)</li>
+                  <li>Supported layout: Standard 3×4 + long Lead II rhythm strip</li>
                 </ul>
-              )}
-
-              {imageStatus === "uploading" && <LoadingState label="Extracting waveform from image pixels…" />}
-              {imageStatus === "error" && imageError && (
-                <ErrorState message={imageError} onRetry={imageFile ? runImageDigitization : undefined} />
               )}
             </div>
           )}

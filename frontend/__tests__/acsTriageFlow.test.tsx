@@ -131,7 +131,7 @@ describe("AcsTriageFlow", () => {
         px_per_mm_detected: 8.0,
         paper_speed_mm_s: 25,
         gain_mm_per_mv: 10,
-        calibration_confirmed_by_user: true,
+        calibration_source: "default",
         image_quality: { width: 3200, height: 960, megapixels: 3.07, blur_variance: 500, estimated_rotation_deg: 0.1 },
         sampling_frequency_hz: 250,
         heart_rate_bpm: 75,
@@ -170,10 +170,8 @@ describe("AcsTriageFlow", () => {
     const fileInputs = document.querySelectorAll('input[type="file"]');
     const imgFile = new File(["fake-png-bytes"], "ecg.png", { type: "image/png" });
     fireEvent.change(fileInputs[1], { target: { files: [imgFile] } });
-
-    fireEvent.click(screen.getByText(/Confirm 25 mm\/s, 10 mm\/mV/i));
-    fireEvent.click(screen.getByText(/^Standard 3×4$/i));
-    fireEvent.click(screen.getByText(/^Digitize ECG$/i));
+    // Simplified flow: selecting the file triggers analysis automatically,
+    // no separate calibration/layout confirmation clicks.
 
     await waitFor(() => {
       expect(screen.getByText("ECG IMAGE DIGITIZATION — RESEARCH PROTOTYPE")).toBeInTheDocument();

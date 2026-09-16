@@ -5,29 +5,48 @@ RESEARCH PROTOTYPE. NOT A MEDICAL DEVICE. NOT FOR CLINICAL USE.
 NOT CLINICALLY VALIDATED.
 
 This module implements a genuinely functional, deliberately scoped-down
-image-to-waveform pipeline for a single, common printed-ECG layout:
+image-to-waveform pipeline for the most common printed-ECG format:
 
-  image/PDF -> quality gate -> grid-pitch detection (calibration) ->
-  fixed 3x4 panel cropping -> per-panel trace-centerline extraction ->
-  pixel-to-physical-unit conversion -> resampled waveform array ->
+  image/PDF -> quality gate -> grid bounding-box detection -> grid-pitch
+  detection (calibration) -> deterministic 3x4(+rhythm strip) panel
+  cropping, inset to exclude lead-label text and calibration pulses ->
+  per-panel trace-centerline extraction (colour-based, continuity-tracked)
+  -> pixel-to-physical-unit conversion -> resampled waveform array ->
   the SAME existing ECG Core measurement function used by the real-WFDB
   pipeline (cardiomirai.acs.ecg_ingestion.measure_array_to_lead_inputs,
   which itself calls cardiomirai.api.extract_basic_ecg_measurements) ->
   the SAME audited ACS Core engine.
 
+ROOT CAUSE OF THE EARLIER FAILURE (fixed in this revision): panel
+cropping used to divide the RAW IMAGE dimensions into 3 equal rows and 4
+equal columns. Any real photograph has margins around the printed grid,
+and the common format also has a 4th row (a long Lead-II rhythm strip)
+beneath the 3 diagnostic rows. Dividing the raw image into thirds
+therefore misaligned every single panel boundary — worse, this did not
+always fail cleanly: it sometimes produced HIGH-CONFIDENCE, WRONG
+measurements (trace fragments and label text captured in the wrong
+crop region still register as "a continuous dark line"). This revision
+fixes the geometry itself: panels are now cropped from the detected grid
+region's bounding box, not the raw image, and the layout is aware of the
+rhythm-strip row.
+
 What this module does NOT do, by design, for today's scope:
-  - Automatic lead-label OCR or layout detection. The caller must confirm
-    "standard_3x4" (the only layout implemented); anything else is refused.
+  - Automatic lead-label OCR. Lead-label text regions are excluded by a
+    fixed inset margin (labels are conventionally printed at fixed
+    corners of each panel), not read.
+  - Full automatic layout classification across ECG manufacturers. Only
+    two layouts are supported: "standard_3x4_rhythm_strip" (3 diagnostic
+    rows + a long Lead II strip — the most common format) and
+    "standard_3x4" (3 diagnostic rows only, no strip). A basic aspect-
+    ratio sanity check rejects images that plainly do not match either.
   - Automatic calibration confidence beyond grid-pitch detection. Paper
-    speed and gain are always user-confirmed values, never inferred from
-    the image; only the pixels-per-mm scale factor is detected from the
-    image's own grid lines, and if that detection is unreliable, the
+    speed and gain are user-confirmed (or defaulted to the near-universal
+    25 mm/s, 10 mm/mV, explicitly labeled as a default, never claimed to
+    be OCR-read); only the pixels-per-mm scale factor is detected from
+    the image's own grid lines, and if that detection is unreliable, the
     whole request is refused rather than guessed.
-  - Perspective correction for significant rotation/skew. Images with
-    excessive detected rotation are rejected at the quality gate.
-  - Multi-page PDF page selection. A PDF with more than one page is
-    refused outright, since this module has no way to reliably identify
-    which page (if any) contains the ECG.
+  - Perspective correction for significant rotation/skew.
+  - Multi-page PDF page selection.
 
 Every numeric measurement returned by this module traces back to actual
 pixel intensities in the uploaded image. Any stage that cannot produce a
@@ -44,20 +63,21 @@ import cv2
 import numpy as np
 from scipy.signal import find_peaks
 
-# --- Fixed layout definition -------------------------------------------
-# The near-universal printed 12-lead ECG layout: 3 rows x 4 columns.
-# Confirmed by the user before use (see cardiomirai/acs/api.py); this
-# module implements ONLY this layout. A rhythm-strip row beneath, if
-# present, is not used for measurement (see LIMITATIONS in the delivery
-# report) — panels are cropped from the top 3 rows regardless of total
-# image height, which is imprecise if a rhythm strip occupies unequal
-# vertical space; flagged as a known limitation, not silently corrected.
+# --- Fixed layout definitions -------------------------------------------
+# The near-universal printed 12-lead ECG layout: 3 rows x 4 columns,
+# optionally followed by a long Lead-II rhythm strip as a 4th row.
+
 STANDARD_3X4_LAYOUT = [
     ["I", "aVR", "V1", "V4"],
     ["II", "aVL", "V2", "V5"],
     ["III", "aVF", "V3", "V6"],
 ]
-SUPPORTED_LAYOUTS = {"standard_3x4"}
+# Primary supported layout going forward: 3 diagnostic rows + a long
+# Lead-II rhythm strip as the 4th row (the most common printed format).
+# "standard_3x4" (no rhythm strip, exactly 3 rows) remains supported for
+# layouts genuinely printed without one.
+SUPPORTED_LAYOUTS = {"standard_3x4_rhythm_strip", "standard_3x4"}
+DEFAULT_LAYOUT = "standard_3x4_rhythm_strip"
 
 MIN_MEGAPIXELS = 0.5
 BLUR_VARIANCE_THRESHOLD = 80.0   # Laplacian variance; below this = likely blurry
@@ -66,6 +86,20 @@ MIN_GRID_PEAKS_FOR_PITCH = 6
 GRID_PITCH_CV_THRESHOLD = 0.25   # coefficient of variation of peak spacing; above = unreliable
 MIN_TRACE_COLUMN_COVERAGE = 0.6  # fraction of panel columns needing a detected trace pixel
 TARGET_RESAMPLED_FS = 250.0
+
+# Panel geometry safety margins, as a fraction of panel width/height.
+# Lead labels are conventionally printed at the top-left corner of each
+# panel; calibration pulses appear at the very start of each row. Insetting
+# the extraction ROI by these margins keeps that text/pulse content out of
+# the trace-centerline computation without needing OCR to locate it.
+PANEL_TOP_LABEL_MARGIN_FRAC = 0.18
+PANEL_LEFT_CALIBRATION_MARGIN_FRAC = 0.06
+
+# Aspect-ratio sanity bounds for the whole image, used as a lightweight
+# (non-OCR) layout plausibility check — not a classifier, just a guard
+# against obviously-mismatched uploads (e.g. a portrait single-lead strip).
+MIN_ASPECT_RATIO = 1.1
+MAX_ASPECT_RATIO = 4.0
 
 
 class ImageDigitizationError(ValueError):
@@ -215,40 +249,112 @@ def estimate_grid_px_per_mm(gray: np.ndarray) -> Optional[float]:
     return median_spacing  # pixels per 1mm small-square
 
 
+def detect_grid_bounding_box(image_bgr: np.ndarray) -> tuple[int, int, int, int]:
+    """
+    Finds the (x0, y0, x1, y1) bounding box of the printed grid within the
+    full image, using the same colour signature used elsewhere in this
+    module (grid lines are reddish; margins are white; machine/patient
+    text at the bottom is black, not reddish, so it is correctly excluded
+    here too). This is the fix for the root cause of the earlier failure:
+    panels were being cropped from the RAW IMAGE's dimensions, which
+    silently misaligned every panel whenever the image had margins or a
+    4th row, sometimes producing high-confidence but wrong measurements
+    rather than a clean failure.
+    """
+    b = image_bgr[:, :, 0].astype(np.float32)
+    r = image_bgr[:, :, 2].astype(np.float32)
+    redness = r - b
+    grid_mask = redness > (np.median(redness) + 10)
+
+    rows_with_grid = np.flatnonzero(np.any(grid_mask, axis=1))
+    cols_with_grid = np.flatnonzero(np.any(grid_mask, axis=0))
+    if len(rows_with_grid) == 0 or len(cols_with_grid) == 0:
+        raise ImageDigitizationError(
+            "No printed grid could be detected in this image (looked for the "
+            "characteristic red/pink ECG grid colour). Please upload a photo "
+            "or scan that clearly shows the printed grid."
+        )
+    return (
+        int(cols_with_grid[0]), int(rows_with_grid[0]),
+        int(cols_with_grid[-1]) + 1, int(rows_with_grid[-1]) + 1,
+    )
+
+
 def crop_layout_panels(image_bgr: np.ndarray, layout: str) -> dict:
-    """Fixed proportional grid slicing for the standard 3x4 layout. Raises
-    for any other layout value — no other layout is implemented."""
+    """
+    Deterministic panel geometry, cropped from the DETECTED GRID'S
+    bounding box (not the raw image), aware of whether a rhythm-strip 4th
+    row is expected:
+
+      - "standard_3x4_rhythm_strip": the grid bounding box is divided into
+        4 equal-height rows; only the first 3 are diagnostic panels
+        (mapped I/aVR/V1/V4, II/aVL/V2/V5, III/aVF/V3/V6); the 4th (long
+        Lead II rhythm strip) is intentionally NOT treated as another
+        diagnostic panel.
+      - "standard_3x4": the grid bounding box is divided into 3 rows, no
+        rhythm strip assumed.
+
+    Each panel is then inset by fixed margins (PANEL_TOP_LABEL_MARGIN_FRAC,
+    PANEL_LEFT_CALIBRATION_MARGIN_FRAC) to exclude the lead-label text
+    and calibration-pulse regions from the extraction ROI.
+
+    Raises for any other layout value — no other layout is implemented.
+    """
     if layout not in SUPPORTED_LAYOUTS:
         raise ImageDigitizationError(
-            f"Layout '{layout}' is not supported. Only 'standard_3x4' is "
-            "implemented in this prototype; other layouts are refused "
-            "rather than guessed at."
+            f"Layout '{layout}' is not supported. Supported layouts: "
+            f"{sorted(SUPPORTED_LAYOUTS)}. ECG layout not currently "
+            "supported by the research prototype."
         )
-    height, width = image_bgr.shape[:2]
-    row_h = height // 3
-    col_w = width // 4
+
+    gx0, gy0, gx1, gy1 = detect_grid_bounding_box(image_bgr)
+    grid_w = gx1 - gx0
+    grid_h = gy1 - gy0
+
+    n_rows_total = 4 if layout == "standard_3x4_rhythm_strip" else 3
+    row_h = grid_h // n_rows_total
+    col_w = grid_w // 4
+
     panels = {}
     for row_idx, row_leads in enumerate(STANDARD_3X4_LAYOUT):
         for col_idx, lead_name in enumerate(row_leads):
-            y0, y1 = row_idx * row_h, (row_idx + 1) * row_h
-            x0, x1 = col_idx * col_w, (col_idx + 1) * col_w
-            panels[lead_name] = image_bgr[y0:y1, x0:x1]
+            y0 = gy0 + row_idx * row_h
+            y1 = gy0 + (row_idx + 1) * row_h
+            x0 = gx0 + col_idx * col_w
+            x1 = gx0 + (col_idx + 1) * col_w
+
+            # Inset to exclude the lead-label text (top-left of panel) and
+            # any calibration pulse (start of row).
+            top_inset = int((y1 - y0) * PANEL_TOP_LABEL_MARGIN_FRAC)
+            left_inset = int((x1 - x0) * PANEL_LEFT_CALIBRATION_MARGIN_FRAC)
+            panels[lead_name] = image_bgr[y0 + top_inset : y1, x0 + left_inset : x1]
+
     return panels
 
 
 def extract_trace_centerline(panel_bgr: np.ndarray) -> tuple[np.ndarray, float]:
     """Isolates the ECG trace from the printed grid using colour, not just
-    grayscale intensity.
+    grayscale intensity, then follows it column-by-column via continuity
+    tracking rather than blindly averaging every dark pixel in a column.
 
     Real printed ECG paper grids are pink/red specifically so the trace
     (drawn or printed in black or blue) can be separated from the grid by
     colour — a plain grayscale intensity threshold cannot reliably tell a
     mid-tone grid line from ink, since both are 'darker than the white
     background' in grayscale. This isolates pixels that are both (a) dark
-    overall and (b) not reddish (grid lines have a notably higher red
-    channel than blue; true black/blue ink does not). Returns the
-    per-column row index (float, NaN where undetected) and a confidence
-    score (fraction of columns with a detected trace pixel)."""
+    overall and (b) not reddish.
+
+    Continuity tracking: a column may contain more than one dark
+    connected segment (e.g. a stray fragment of lead-label text that
+    extends past the panel's top inset margin, or noise). Rather than
+    averaging all of them together — which corrupts the measurement —
+    each column's chosen position is the connected segment closest to the
+    previous column's chosen position, since the genuine ECG trace is a
+    single continuous line while text/noise fragments are not spatially
+    continuous with it across many neighbouring columns.
+
+    Returns the per-column row index (float, NaN where undetected) and a
+    confidence score (fraction of columns with a detected trace pixel)."""
     b = panel_bgr[:, :, 0].astype(np.float32)
     g = panel_bgr[:, :, 1].astype(np.float32)
     r = panel_bgr[:, :, 2].astype(np.float32)
@@ -269,11 +375,29 @@ def extract_trace_centerline(panel_bgr: np.ndarray) -> tuple[np.ndarray, float]:
     height, width = mask.shape
     centerline = np.full(width, np.nan)
     detected_columns = 0
+    previous_row: Optional[float] = None
+
     for x in range(width):
         column_pixels = np.flatnonzero(mask[:, x])
-        if len(column_pixels) > 0:
-            centerline[x] = float(np.mean(column_pixels))
-            detected_columns += 1
+        if len(column_pixels) == 0:
+            continue
+
+        # Group into contiguous runs (a column can have >1 disconnected
+        # dark segment — e.g. residual text plus the trace).
+        splits = np.flatnonzero(np.diff(column_pixels) > 1)
+        segments = np.split(column_pixels, splits + 1)
+        segment_centers = [float(np.mean(seg)) for seg in segments]
+
+        if previous_row is None:
+            # No prior context yet: take the largest segment (most likely
+            # to be the continuous trace rather than a small text blob).
+            chosen = segment_centers[int(np.argmax([len(s) for s in segments]))]
+        else:
+            chosen = min(segment_centers, key=lambda c: abs(c - previous_row))
+
+        centerline[x] = chosen
+        previous_row = chosen
+        detected_columns += 1
 
     confidence = detected_columns / width if width else 0.0
     return centerline, confidence
@@ -284,7 +408,7 @@ def digitize_ecg_image(
     filename: str,
     paper_speed_mm_s: float,
     gain_mm_per_mv: float,
-    layout: str,
+    layout: str = DEFAULT_LAYOUT,
 ) -> DigitizationResult:
     """Top-level orchestrator. Raises ImageDigitizationError at any stage
     that cannot produce a trustworthy result."""
@@ -293,6 +417,15 @@ def digitize_ecg_image(
 
     image_bgr = load_image(file_bytes, filename)
     gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+
+    height, width = gray.shape
+    aspect_ratio = width / height if height else 0
+    if not (MIN_ASPECT_RATIO <= aspect_ratio <= MAX_ASPECT_RATIO):
+        raise ImageDigitizationError(
+            "ECG layout not currently supported by the research prototype. "
+            f"The image's proportions (aspect ratio {aspect_ratio:.2f}) do not "
+            "match the supported standard 3x4 (+ rhythm strip) format."
+        )
 
     quality = assess_image_quality(image_bgr)
     if not quality.acceptable:
