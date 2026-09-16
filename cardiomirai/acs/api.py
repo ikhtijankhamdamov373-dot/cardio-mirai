@@ -38,6 +38,7 @@ router = APIRouter(prefix="/api/acs", tags=["acs-research-prototype"])
 class LeadInput(BaseModel):
     lead: str
     st_elevation_mm: float
+    reciprocal_depression_mm: Optional[float] = None
 
 
 class MimicInput(BaseModel):
@@ -110,7 +111,14 @@ def assess_stemi(request: StemiAssessRequest) -> dict:
         ongoing_chest_pain=request.patient.ongoing_chest_pain,
     )
     mimics = MimicFlags(**request.mimics.model_dump())
-    leads = [LeadMeasurement(lead=l.lead, st_elevation_mm=l.st_elevation_mm) for l in request.leads]
+    leads = [
+        LeadMeasurement(
+            lead=l.lead,
+            st_elevation_mm=l.st_elevation_mm,
+            reciprocal_depression_mm=l.reciprocal_depression_mm,
+        )
+        for l in request.leads
+    ]
 
     try:
         result = evaluate_stemi_criteria(leads, patient, mimics)
@@ -134,9 +142,15 @@ def assess_stemi(request: StemiAssessRequest) -> dict:
         "mimic_present": result.mimic_present,
         "mimic_names": result.mimic_names,
         "contiguous_leads": sorted(result.contiguous_group) if result.contiguous_group else [],
+        "contiguous_group_name": result.contiguous_group_name,
+        "triggering_rule_id": result.triggering_rule_id,
         "contributing_measurements": [
             {"lead": m.lead, "st_elevation_mm": m.st_elevation_mm}
             for m in result.contributing_leads
+        ],
+        "reciprocal_changes": [
+            {"lead": m.lead, "reciprocal_depression_mm": m.reciprocal_depression_mm}
+            for m in result.reciprocal_changes
         ],
         "thresholds_applied": result.thresholds_applied,
         "urgency": urgency.value,
@@ -145,7 +159,12 @@ def assess_stemi(request: StemiAssessRequest) -> dict:
             None if result.criteria_met else ACS_NOT_EXCLUDED_STATEMENT
         ),
         "nstemi_note": NSTEMI_CANNOT_BE_DETERMINED_STATEMENT,
-        "source": "2025 ACC/AHA ACS Guideline / 2023 ESC ACS Guideline / Fourth Universal Definition of MI",
+        "source": (
+            "2025 ACC/AHA ACS Guideline (STEMI/NSTE-ACS management) / "
+            "2023 ESC ACS Guideline (diagnosis and ECG guidance) / "
+            "Fifth Universal Definition of Myocardial Infarction (2026) "
+            "(definition and classification)"
+        ),
         "disclaimer": DECISION_SUPPORT_DISCLAIMER,
     }
 

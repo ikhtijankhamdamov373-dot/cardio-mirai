@@ -13,6 +13,7 @@ const PROXY_PREFIX = "/api/backend/acs";
 export interface LeadInput {
   lead: string;
   st_elevation_mm: number;
+  reciprocal_depression_mm?: number | null;
 }
 
 export interface MimicInput {
@@ -49,7 +50,10 @@ export interface StemiAssessResult {
   mimic_present?: boolean;
   mimic_names?: string[];
   contiguous_leads?: string[];
+  contiguous_group_name?: string | null;
+  triggering_rule_id?: string | null;
   contributing_measurements?: { lead: string; st_elevation_mm: number }[];
+  reciprocal_changes?: { lead: string; reciprocal_depression_mm: number }[];
   thresholds_applied?: Record<string, number | null>;
   urgency: "EMERGENCY" | "HIGH" | "ROUTINE" | "INDETERMINATE";
   headline: string;
