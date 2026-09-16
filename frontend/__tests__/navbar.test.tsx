@@ -6,6 +6,7 @@ describe("Navbar", () => {
     render(<Navbar />);
     const expected = [
       "Home",
+      "Digital Lifeline",
       "ECG AI",
       "Emergency Cardiology",
       "Clinical Calculators",
