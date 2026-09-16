@@ -64,6 +64,83 @@ export interface StemiAssessResult {
   error?: string;
 }
 
+export interface RealEcgAnalysisResult {
+  analysis_source: "uploaded_real_ecg";
+  detected_leads: string[];
+  unrecognized_leads: string[];
+  duplicate_leads: string[];
+  excluded_low_quality_leads: string[];
+  sampling_frequency_hz: number;
+  duration_seconds: number;
+  heart_rate_bpm: number | null;
+  qrs_beat_count: number;
+  warnings: string[];
+  quality_gate_passed: boolean;
+  quality_failure_reasons?: string[];
+  criteria_met?: boolean;
+  requires_clinical_correlation?: boolean;
+  mimic_present?: boolean;
+  mimic_names?: string[];
+  contiguous_leads?: string[];
+  contiguous_group_name?: string | null;
+  triggering_rule_id?: string | null;
+  contributing_measurements?: { lead: string; st_elevation_mm: number }[];
+  all_lead_measurements?: { lead: string; st_elevation_mm: number; reciprocal_depression_mm: number | null }[];
+  reciprocal_changes?: { lead: string; reciprocal_depression_mm: number }[];
+  thresholds_applied?: Record<string, number | null>;
+  urgency: "EMERGENCY" | "HIGH" | "ROUTINE" | "INDETERMINATE";
+  headline: string;
+  acs_not_excluded_statement?: string | null;
+  nstemi_note?: string;
+  source?: string;
+  disclaimer: string;
+}
+
+/** Uploads a real digital 12-lead ECG (.hea+.dat pair, or .zip containing
+ * one) for genuine measurement and ACS assessment. Never falls back to
+ * synthetic/demo data — a parsing or measurement failure throws, with the
+ * backend's specific error message, rather than returning a fabricated
+ * result. */
+export async function analyzeRealEcg(params: {
+  files: File[];
+  age?: number | null;
+  sex?: "male" | "female" | null;
+  symptomatic?: boolean;
+  high_clinical_suspicion?: boolean;
+  ongoing_chest_pain?: boolean;
+  paced_rhythm?: boolean;
+  pericarditis?: boolean;
+  brugada?: boolean;
+  takotsubo?: boolean;
+  early_repolarization?: boolean;
+}): Promise<RealEcgAnalysisResult> {
+  const form = new FormData();
+  for (const file of params.files) form.append("files", file);
+  if (params.age != null) form.append("age", String(params.age));
+  if (params.sex) form.append("sex", params.sex);
+  form.append("symptomatic", String(Boolean(params.symptomatic)));
+  form.append("high_clinical_suspicion", String(Boolean(params.high_clinical_suspicion)));
+  form.append("ongoing_chest_pain", String(Boolean(params.ongoing_chest_pain)));
+  form.append("paced_rhythm", String(Boolean(params.paced_rhythm)));
+  form.append("pericarditis", String(Boolean(params.pericarditis)));
+  form.append("brugada", String(Boolean(params.brugada)));
+  form.append("takotsubo", String(Boolean(params.takotsubo)));
+  form.append("early_repolarization", String(Boolean(params.early_repolarization)));
+
+  const res = await fetch(`${PROXY_PREFIX}/analyze-ecg`, { method: "POST", body: form });
+  if (!res.ok) {
+    let detail = "The uploaded ECG could not be analyzed.";
+    try {
+      const body = await res.json();
+      if (typeof body?.detail === "string") detail = body.detail;
+    } catch {
+      /* non-JSON error body, keep default message */
+    }
+    throw new Error(detail);
+  }
+  return res.json();
+}
+
 async function postJson<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${PROXY_PREFIX}${path}`, {
     method: "POST",

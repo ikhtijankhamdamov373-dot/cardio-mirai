@@ -138,7 +138,7 @@ export function AcsTriageFlow({ autoDemo = false }: { autoDemo?: boolean }) {
           <>
             <Card>
               <p className="font-bold text-navy mb-4">Step 2 — ECG Input</p>
-              <EcgInputStep value={ecgInput} onChange={setEcgInput} />
+              <EcgInputStep value={ecgInput} onChange={setEcgInput} patient={patient} />
             </Card>
             <div className="flex flex-wrap gap-3">
               <Button variant="secondary" onClick={() => setStep("patient")}>

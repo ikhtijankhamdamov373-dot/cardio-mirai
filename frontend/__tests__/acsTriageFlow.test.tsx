@@ -108,4 +108,82 @@ describe("AcsTriageFlow", () => {
     expect(screen.getByText("Wellens-type pattern")).toBeInTheDocument();
     expect(screen.getByText("de Winter pattern".replace("de", "De"))).toBeInTheDocument();
   });
+
+  it("the digital ECG upload input is enabled, not disabled", () => {
+    render(<AcsTriageFlow />);
+    fireEvent.click(screen.getByText(/DEMO CASE/i)); // advance to Step 2
+    const fileInputs = document.querySelectorAll('input[type="file"]');
+    // First file input (digital upload) must be enabled; second (photo) must remain disabled.
+    expect(fileInputs[0]).not.toBeDisabled();
+    expect(fileInputs[1]).toBeDisabled();
+  });
+
+  it("selecting an unsupported file shows a clear error, not a silent failure", () => {
+    render(<AcsTriageFlow />);
+    fireEvent.click(screen.getByText(/DEMO CASE/i));
+    const fileInputs = document.querySelectorAll('input[type="file"]');
+    const badFile = new File(["fake"], "scan.pdf", { type: "application/pdf" });
+    fireEvent.change(fileInputs[0], { target: { files: [badFile] } });
+    expect(screen.getByText(/Unsupported file/i)).toBeInTheDocument();
+  });
+
+  it("selecting a valid file shows filename and an Analyze button, and a successful analysis renders REAL ECG ANALYSIS distinctly from SYNTHETIC DEMONSTRATION", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        analysis_source: "uploaded_real_ecg",
+        detected_leads: ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"],
+        unrecognized_leads: [],
+        duplicate_leads: [],
+        excluded_low_quality_leads: [],
+        sampling_frequency_hz: 500,
+        duration_seconds: 10,
+        heart_rate_bpm: 75,
+        qrs_beat_count: 12,
+        warnings: [],
+        quality_gate_passed: true,
+        criteria_met: true,
+        requires_clinical_correlation: false,
+        mimic_present: false,
+        mimic_names: [],
+        contiguous_leads: ["V2", "V3", "V4"],
+        contiguous_group_name: "Anteroseptal",
+        triggering_rule_id: "ACS-CORE-002",
+        contributing_measurements: [
+          { lead: "V2", st_elevation_mm: 2.6 },
+          { lead: "V3", st_elevation_mm: 2.6 },
+        ],
+        all_lead_measurements: [{ lead: "V2", st_elevation_mm: 2.6, reciprocal_depression_mm: null }],
+        reciprocal_changes: [],
+        thresholds_applied: { general_leads_mm: 1.0, v2_v3_mm: 2.0 },
+        urgency: "EMERGENCY",
+        headline: "ECG meets guideline STEMI criteria",
+        acs_not_excluded_statement: null,
+        nstemi_note: "NSTEMI cannot be determined from ECG alone",
+        source: "2025 ACC/AHA ACS Guideline / 2023 ESC ACS Guideline / Fifth Universal Definition of Myocardial Infarction (2026)",
+        disclaimer: "Cardio MIRAI provides decision support and does not replace clinical diagnosis.",
+      }),
+    }) as jest.Mock;
+
+    render(<AcsTriageFlow />);
+    fireEvent.click(screen.getByText(/DEMO CASE/i)); // reaches Step 2 with synthetic banner shown
+    expect(screen.getByText(/SYNTHETIC DEMONSTRATION — NOT A REAL PATIENT/i)).toBeInTheDocument();
+
+    const fileInputs = document.querySelectorAll('input[type="file"]');
+    const heaFile = new File(["header"], "record.hea", { type: "application/octet-stream" });
+    fireEvent.change(fileInputs[0], { target: { files: [heaFile] } });
+    expect(screen.getByText(/record\.hea/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText(/Analyze Uploaded ECG/i));
+
+    await waitFor(() => {
+      expect(screen.getByText("REAL ECG ANALYSIS")).toBeInTheDocument();
+    });
+    // The two labels coexist without conflation: the page-level banner still
+    // says SYNTHETIC DEMONSTRATION (because Demo Case was clicked earlier),
+    // but the upload result itself is unambiguously labeled REAL ECG ANALYSIS,
+    // proving a real upload is never silently merged into the demo state.
+    expect(screen.getByText(/SYNTHETIC DEMONSTRATION — NOT A REAL PATIENT/i)).toBeInTheDocument();
+    expect(screen.getByText("REAL ECG ANALYSIS")).toBeInTheDocument();
+  });
 });
