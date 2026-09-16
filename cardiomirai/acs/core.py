@@ -80,25 +80,65 @@ class Urgency(str, Enum):
 
 @dataclass
 class LeadMeasurement:
-    """A single lead's J-point ST measurement, in millimetres (1 mm = 0.1 mV)."""
+    """A single lead's J-point ST measurement, in millimetres (1 mm = 0.1 mV).
+
+    `reciprocal_depression_mm` is purely descriptive/reportable — per the
+    Fifth Universal Definition of Myocardial Infarction (2026) and both the
+    2023 ESC and 2025 ACC/AHA ACS guidelines, reciprocal ST depression is a
+    supportive/confirmatory finding, not itself a separate deterministic
+    threshold rule in ACS Core v1.0. It must never influence
+    `criteria_met` — only the explainability/reporting output.
+    """
 
     lead: str
     st_elevation_mm: float
+    reciprocal_depression_mm: Optional[float] = None
 
 
-# Leads considered contiguous groups for the "≥2 contiguous leads" requirement.
-# This is a simplified, guideline-referenced grouping sufficient for the
-# demo's synthetic fixtures; it is NOT a substitute for a validated
-# anatomical-contiguity engine (see "Known limitations" in the delivery report).
-CONTIGUOUS_GROUPS = [
-    {"V1", "V2", "V3", "V4"},
-    {"V2", "V3", "V4", "V5"},
-    {"V3", "V4", "V5", "V6"},
-    {"II", "III", "aVF"},
-    {"I", "aVL"},
+# ---------------------------------------------------------------------------
+# Anatomically named, explicit contiguous-lead groups.
+#
+# Named per standard 12-lead anatomical territories so the triggered group
+# can be reported by name (e.g. "Inferior") in explainability, not just as
+# a bare set of lead labels. Each entry's `leads` set is checked by subset
+# overlap (>=2 elevated leads within the named group), so e.g. an isolated
+# V1+V2 elevation still correctly satisfies the Anteroseptal group without
+# needing every listed lead to be elevated.
+#
+# IMPORTANT: aVR is intentionally absent from every group below. It is
+# still measured by the general-lead >=1mm branch (see
+# evaluate_stemi_criteria), but no standard 2-contiguous-lead STEMI group
+# includes aVR — ST elevation in aVR is a separate, non-guideline-graded
+# research finding (Matrix v1.2 FINAL, row 21: aVR/inferolateral pattern,
+# EVIDENCE/RESEARCH), not part of ACS-CORE-001/002. Do not add aVR to a
+# group here without an explicit, separately-approved rule for it.
+#
+# V7-V9 (posterior) and V3R/V4R (right-sided) are intentionally absent.
+# They are not implemented anywhere in this engine (Matrix v1.2 FINAL,
+# rows 4-5: embedded supportive text, not independently graded) — adding
+# them here would risk the engine "detecting" a posterior/RV pattern from
+# leads that were never actually acquired. If/when they are implemented,
+# they must be gated on the caller explicitly confirming those leads were
+# acquired, never inferred from a 12-lead set that lacks them.
+# ---------------------------------------------------------------------------
+NamedContiguousGroup = tuple[str, frozenset]
+
+CONTIGUOUS_GROUPS_NAMED: list[NamedContiguousGroup] = [
+    ("Inferior", frozenset({"II", "III", "aVF"})),
+    ("High lateral", frozenset({"I", "aVL"})),
+    ("Lateral", frozenset({"I", "aVL", "V5", "V6"})),
+    ("Anteroseptal", frozenset({"V1", "V2", "V3", "V4"})),
+    ("Anterior", frozenset({"V2", "V3", "V4"})),
+    ("Anterolateral", frozenset({"V3", "V4", "V5", "V6"})),
 ]
 
+# Backward-compatible plain-set view, kept for any external code relying on
+# the previous shape.
+CONTIGUOUS_GROUPS = [leads for _name, leads in CONTIGUOUS_GROUPS_NAMED]
+
 V2_V3_LEADS = {"V2", "V3"}
+
+ALL_12_LEADS = {"I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"}
 
 
 @dataclass
@@ -199,7 +239,9 @@ def _v2_v3_threshold_mm(age: Optional[int], sex: Optional[str]) -> float:
     if age is None or sex is None:
         raise ValueError(
             "Age and sex are required to apply the V2-V3 STEMI threshold "
-            "(ACS-CORE-002, Fourth Universal Definition 2018)."
+            "(ACS-CORE-002, thresholds sourced from ACC/AHA 2025 Table 3 / "
+            "ESC 2023 Section 3.2.1, both aligned with the Fifth Universal "
+            "Definition of Myocardial Infarction 2026)."
         )
     sex_normalized = sex.strip().lower()
     if sex_normalized not in ("male", "female"):
@@ -215,10 +257,13 @@ class StemiCriteriaResult:
     criteria_met: bool
     contributing_leads: list[LeadMeasurement] = field(default_factory=list)
     contiguous_group: Optional[frozenset] = None
+    contiguous_group_name: Optional[str] = None
+    triggering_rule_id: Optional[str] = None
     thresholds_applied: dict = field(default_factory=dict)
     mimic_present: bool = False
     mimic_names: list[str] = field(default_factory=list)
     requires_clinical_correlation: bool = False
+    reciprocal_changes: list[LeadMeasurement] = field(default_factory=list)
 
 
 def evaluate_stemi_criteria(
@@ -237,11 +282,23 @@ def evaluate_stemi_criteria(
     ACS-CORE-003: if a mimic is present AND the patient is asymptomatic or
                   suspicion is not high, this result must not be presented
                   as an unqualified STEMI-criteria-met finding.
+
+    Accepts any subset of the 12 standard leads (see ALL_12_LEADS). Every
+    lead not in V2/V3 — including I, II, III, aVR, aVL, aVF — is evaluated
+    against the general >=1mm threshold. aVR is deliberately excluded from
+    every contiguous group (see CONTIGUOUS_GROUPS_NAMED) and therefore can
+    never, by itself or in combination, satisfy criteria_met — this is
+    intentional (aVR is not part of any guideline-defined 2-contiguous-lead
+    STEMI group) and is covered by test_avr_measured_but_never_triggers.
     """
     v2v3_threshold = None
     elevated: list[LeadMeasurement] = []
+    reciprocal: list[LeadMeasurement] = []
 
     for measurement in leads:
+        if measurement.reciprocal_depression_mm is not None:
+            reciprocal.append(measurement)
+
         if measurement.lead in V2_V3_LEADS:
             if v2v3_threshold is None:
                 v2v3_threshold = _v2_v3_threshold_mm(patient.age, patient.sex)
@@ -252,10 +309,12 @@ def evaluate_stemi_criteria(
                 elevated.append(measurement)
 
     elevated_lead_names = {m.lead for m in elevated}
+    matched_group_name = None
     matched_group = None
-    for group in CONTIGUOUS_GROUPS:
+    for name, group in CONTIGUOUS_GROUPS_NAMED:
         overlap = group & elevated_lead_names
         if len(overlap) >= 2:
+            matched_group_name = name
             matched_group = frozenset(overlap)
             break
 
@@ -265,16 +324,27 @@ def evaluate_stemi_criteria(
     if mimics.lvh or mimics.lbbb:
         criteria_met = False
 
+    triggering_rule_id = None
+    if criteria_met and matched_group:
+        # ACS-CORE-002 fires if any contributing lead is V2/V3; otherwise
+        # the general-lead ACS-CORE-001 rule fired.
+        triggering_rule_id = (
+            "ACS-CORE-002" if matched_group & V2_V3_LEADS else "ACS-CORE-001"
+        )
+
     result = StemiCriteriaResult(
         criteria_met=criteria_met,
         contributing_leads=[m for m in elevated if m.lead in (matched_group or set())],
         contiguous_group=matched_group,
+        contiguous_group_name=matched_group_name,
+        triggering_rule_id=triggering_rule_id,
         thresholds_applied={
             "general_leads_mm": 1.0,
             "v2_v3_mm": v2v3_threshold,
         },
         mimic_present=mimics.any_present(),
         mimic_names=mimics.present_names(),
+        reciprocal_changes=reciprocal,
     )
 
     # ACS-CORE-003: asymptomatic / low-suspicion + mimic present => flag for

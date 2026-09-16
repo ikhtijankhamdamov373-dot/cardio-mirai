@@ -55,6 +55,9 @@ export function ResultDisplay({ result }: { result: StemiAssessResult }) {
             {result.contiguous_leads && result.contiguous_leads.length > 0 && (
               <p className="mt-1 text-sm text-muted">
                 Contiguous leads: {result.contiguous_leads.join("–")}
+                {result.contiguous_group_name && (
+                  <span className="font-semibold text-ink"> ({result.contiguous_group_name})</span>
+                )}
               </p>
             )}
           </div>
@@ -107,8 +110,29 @@ export function ResultDisplay({ result }: { result: StemiAssessResult }) {
                 </li>
               );
             })}
-            <li className="pt-1 font-semibold">≥2 anatomically contiguous leads satisfied.</li>
+            <li className="pt-1 font-semibold">
+              ≥2 anatomically contiguous leads satisfied
+              {result.contiguous_group_name && ` (${result.contiguous_group_name})`}.
+            </li>
+            {result.triggering_rule_id && (
+              <li className="text-xs text-muted">Rule: {result.triggering_rule_id}</li>
+            )}
           </ul>
+
+          {result.reciprocal_changes && result.reciprocal_changes.length > 0 && (
+            <div className="mt-3 border-t border-line pt-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted">
+                Reciprocal ST changes (supportive finding, not itself a trigger)
+              </p>
+              <ul className="mt-1 text-sm text-ink">
+                {result.reciprocal_changes.map((r) => (
+                  <li key={r.lead}>
+                    {r.lead}: −{r.reciprocal_depression_mm} mm depression
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <p className="mt-3 text-xs text-muted">Source: {result.source}</p>
         </Card>
       )}
