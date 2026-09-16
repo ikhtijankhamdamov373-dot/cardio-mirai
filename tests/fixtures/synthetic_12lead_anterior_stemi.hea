@@ -1,0 +1,13 @@
+synthetic_12lead_anterior_stemi 12 500 5000
+synthetic_12lead_anterior_stemi.dat 16 52386.91603771922(-31069)/mV 16 0 -30809 15296 0 I
+synthetic_12lead_anterior_stemi.dat 16 51754.02482606008(-30737)/mV 16 0 -30956 7718 0 II
+synthetic_12lead_anterior_stemi.dat 16 52435.44729575066(-30997)/mV 16 0 -31353 9318 0 III
+synthetic_12lead_anterior_stemi.dat 16 52017.758354320365(-30761)/mV 16 0 -30836 33541 0 aVR
+synthetic_12lead_anterior_stemi.dat 16 52201.226761552694(-30859)/mV 16 0 -30677 30755 0 aVL
+synthetic_12lead_anterior_stemi.dat 16 52239.7697256787(-30963)/mV 16 0 -30874 11567 0 aVF
+synthetic_12lead_anterior_stemi.dat 16 52196.28925233564(-30923)/mV 16 0 -31957 56401 0 V1
+synthetic_12lead_anterior_stemi.dat 16 52593.9017210026(-31069)/mV 16 0 -30588 30314 0 V2
+synthetic_12lead_anterior_stemi.dat 16 51729.86599454158(-30545)/mV 16 0 -30789 40753 0 V3
+synthetic_12lead_anterior_stemi.dat 16 52278.52990275609(-31048)/mV 16 0 -30499 50385 0 V4
+synthetic_12lead_anterior_stemi.dat 16 52201.16465712397(-30981)/mV 16 0 -30930 25639 0 V5
+synthetic_12lead_anterior_stemi.dat 16 51951.376968628574(-30607)/mV 16 0 -30347 62289 0 V6
