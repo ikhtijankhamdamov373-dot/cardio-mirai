@@ -196,10 +196,84 @@ def test_h_unsupported_file_extension_rejected(client):
 
 
 # ---------------------------------------------------------------------------
-# THE key proof (Task 15's most important requirement): changing the
-# uploaded image changes the extracted waveform and ST measurements —
-# proving the pipeline is not returning a hardcoded/demo value.
+# URGENT FIX verification: a REALISTIC image with red grid, lead labels,
+# calibration pulses, bottom machine text, AND a long Lead II rhythm strip
+# as a 4th row — the exact real-world format that previously failed with
+# "The ECG image could not be digitized," and which the root-cause fix
+# (grid bounding-box detection + rhythm-strip-aware geometry + label/pulse
+# margin exclusion) specifically targets. Not merely another simplified
+# synthetic image — this one intentionally includes every element the
+# earlier, simpler fixtures omitted.
 # ---------------------------------------------------------------------------
+
+def test_realistic_3x4_with_rhythm_strip_digitizes_correctly(client):
+    res = client.post(
+        "/api/acs/analyze-ecg-image",
+        files={"file": ("realistic.png", _read("realistic_ecg_3x4_rhythm.png"), "image/png")},
+        data={"age": "58", "sex": "male", "symptomatic": "true", "high_clinical_suspicion": "true"},
+        # No explicit layout/calibration — uses the new defaults, matching
+        # the simplified UPLOAD -> ANALYZE frontend flow.
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["analysis_source"] == "uploaded_ecg_image"
+    assert len(body["detected_leads"]) == 12
+    assert body["criteria_met"] is True
+    assert body["urgency"] == "EMERGENCY"
+    assert body["contiguous_group_name"] in ("Anteroseptal", "Anterior")
+
+    # The root-cause bug produced HIGH-CONFIDENCE WRONG measurements
+    # (elevated leads reading 0.0mm, unelevated leads reading nonzero mm)
+    # rather than a clean failure — assert the measurements are actually
+    # correct, not just "some result came back."
+    by_lead = {m["lead"]: m["st_elevation_mm"] for m in body["all_lead_measurements"]}
+    assert by_lead["V2"] > 2.0
+    assert by_lead["V3"] > 2.0
+    assert by_lead["V4"] > 2.0
+    assert abs(by_lead["I"]) < 0.5
+    assert abs(by_lead["aVL"]) < 0.5
+    assert abs(by_lead["aVR"]) < 0.5
+
+
+def test_realistic_image_calibration_labeled_as_default_not_ocr(client):
+    """Per the explicit instruction: do not pretend OCR detected the
+    printed calibration values unless OCR actually did — they are a
+    labeled default here, never claimed as detected."""
+    res = client.post(
+        "/api/acs/analyze-ecg-image",
+        files={"file": ("realistic.png", _read("realistic_ecg_3x4_rhythm.png"), "image/png")},
+        data={"age": "58", "sex": "male"},
+    )
+    body = res.json()
+    assert body["calibration_source"] == "default"
+    assert body["paper_speed_mm_s"] == 25.0
+    assert body["gain_mm_per_mv"] == 10.0
+
+
+def test_rhythm_strip_row_is_not_treated_as_a_13th_diagnostic_panel(client):
+    """The 4th row (long Lead II) must not appear as an extra lead or
+    corrupt the diagnostic panel measurements."""
+    res = client.post(
+        "/api/acs/analyze-ecg-image",
+        files={"file": ("realistic.png", _read("realistic_ecg_3x4_rhythm.png"), "image/png")},
+        data={"age": "58", "sex": "male"},
+    )
+    body = res.json()
+    # Exactly the 12 standard names, never a 13th "rhythm" or duplicate "II_2" entry.
+    assert set(body["detected_leads"]) == {
+        "I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"
+    }
+
+
+def test_default_layout_is_rhythm_strip_aware(client):
+    """Confirms the new default layout parameter is the rhythm-strip-aware
+    one, matching the simplified frontend flow that no longer sends an
+    explicit layout selection."""
+    from cardiomirai.acs.image_ingestion import DEFAULT_LAYOUT
+    assert DEFAULT_LAYOUT == "standard_3x4_rhythm_strip"
+
+
+
 
 def test_changing_the_image_changes_the_result(client):
     with_elevation = client.post(

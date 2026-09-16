@@ -151,7 +151,7 @@ export interface ImageAnalysisResult {
   px_per_mm_detected: number;
   paper_speed_mm_s: number;
   gain_mm_per_mv: number;
-  calibration_confirmed_by_user: boolean;
+  calibration_source: "default" | "user_confirmed";
   image_quality: {
     width: number; height: number; megapixels: number;
     blur_variance: number; estimated_rotation_deg: number;
@@ -190,9 +190,10 @@ export interface ImageAnalysisResult {
  * or demo data on failure; throws with the backend's specific error. */
 export async function analyzeEcgImage(params: {
   file: File;
-  paperSpeedMmS: number;
-  gainMmPerMv: number;
-  layout: "standard_3x4";
+  paperSpeedMmS?: number;
+  gainMmPerMv?: number;
+  layout?: "standard_3x4_rhythm_strip" | "standard_3x4";
+  calibrationSource?: "default" | "user_confirmed";
   age?: number | null;
   sex?: "male" | "female" | null;
   symptomatic?: boolean;
@@ -201,9 +202,10 @@ export async function analyzeEcgImage(params: {
 }): Promise<ImageAnalysisResult> {
   const form = new FormData();
   form.append("file", params.file);
-  form.append("paper_speed_mm_s", String(params.paperSpeedMmS));
-  form.append("gain_mm_per_mv", String(params.gainMmPerMv));
-  form.append("layout", params.layout);
+  form.append("paper_speed_mm_s", String(params.paperSpeedMmS ?? 25));
+  form.append("gain_mm_per_mv", String(params.gainMmPerMv ?? 10));
+  form.append("layout", params.layout ?? "standard_3x4_rhythm_strip");
+  form.append("calibration_source", params.calibrationSource ?? "default");
   if (params.age != null) form.append("age", String(params.age));
   if (params.sex) form.append("sex", params.sex);
   form.append("symptomatic", String(Boolean(params.symptomatic)));

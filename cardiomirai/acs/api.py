@@ -442,9 +442,10 @@ async def analyze_uploaded_ecg(
 @router.post("/analyze-ecg-image")
 async def analyze_ecg_image(
     file: UploadFile = File(...),
-    paper_speed_mm_s: float = Form(25.0),
+    paper_speed_mm_s: float = Form(25.0),  # near-universal default; user-confirmed or defaulted, never claimed to be OCR-read
     gain_mm_per_mv: float = Form(10.0),
-    layout: str = Form("standard_3x4"),
+    layout: str = Form("standard_3x4_rhythm_strip"),
+    calibration_source: str = Form("default"),
     age: Optional[int] = Form(None),
     sex: Optional[str] = Form(None),
     symptomatic: bool = Form(False),
@@ -515,7 +516,7 @@ async def analyze_ecg_image(
         "px_per_mm_detected": digitization.px_per_mm,
         "paper_speed_mm_s": digitization.paper_speed_mm_s,
         "gain_mm_per_mv": digitization.gain_mm_per_mv,
-        "calibration_confirmed_by_user": True,
+        "calibration_source": calibration_source,
         "image_quality": {
             "width": digitization.quality.width,
             "height": digitization.quality.height,
