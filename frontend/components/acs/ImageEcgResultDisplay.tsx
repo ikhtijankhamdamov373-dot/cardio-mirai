@@ -31,11 +31,11 @@ export function ImageEcgResultDisplay({ result }: { result: ImageAnalysisResult 
           <div><p className="text-muted text-xs">QRS beats detected</p><p className="font-semibold text-ink">{result.qrs_beat_count}</p></div>
           <div><p className="text-muted text-xs">Image resolution</p><p className="font-semibold text-ink">{result.image_quality.width}×{result.image_quality.height}</p></div>
         </div>
-        {result.calibration_confirmed_by_user && (
-          <p className="mt-3 text-xs font-semibold text-blue">
-            Calibration confirmed by user: {result.paper_speed_mm_s} mm/s, {result.gain_mm_per_mv} mm/mV
-          </p>
-        )}
+        <p className="mt-3 text-xs font-semibold text-blue">
+          {result.calibration_source === "user_confirmed"
+            ? `Calibration confirmed by user: ${result.paper_speed_mm_s} mm/s, ${result.gain_mm_per_mv} mm/mV`
+            : `Standard calibration assumed: ${result.paper_speed_mm_s} mm/s, ${result.gain_mm_per_mv} mm/mV (not detected by OCR)`}
+        </p>
         <p className="mt-2 text-xs text-muted">Extracted: {result.detected_leads.join(", ")}</p>
         {result.excluded_low_confidence_leads.length > 0 && (
           <p className="mt-1 text-xs text-amber">Excluded (unreliable trace extraction): {result.excluded_low_confidence_leads.join(", ")}</p>
