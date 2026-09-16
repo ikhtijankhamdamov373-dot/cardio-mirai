@@ -100,6 +100,106 @@ class EcgIngestionError(ValueError):
     demo data."""
 
 
+def measure_array_to_lead_inputs(
+    array: np.ndarray,
+    fs: float,
+    canonical_by_index: dict,
+) -> tuple[list[LeadMeasurement], MimicFlags, Optional[float], int, list[str], list[str]]:
+    """
+    Shared core: given an already physically-calibrated (mV) waveform array
+    and a mapping of column-index -> canonical 12-lead name (already
+    normalized and unit-checked by the caller), run it through the SAME
+    existing ECG Core measurement function used everywhere else in this
+    repository, and convert the result into ACS Core inputs.
+
+    Used by both the real-WFDB path (ingest_real_wfdb_ecg, below) and the
+    image/PDF digitization path (cardiomirai/acs/image_ingestion.py) — one
+    measurement path, two ingestion sources, exactly as instructed ("do not
+    build another clinical ECG interpretation algorithm").
+
+    Returns (lead_measurements, mimics, heart_rate_bpm, qrs_beat_count,
+    excluded_low_quality_leads, warnings). Raises EcgIngestionError if too
+    few QRS beats are detected or no lead survives quality filtering.
+    """
+    from cardiomirai import api as core_api  # deferred: see module docstring
+
+    warnings: list[str] = []
+
+    lead_names_for_measurement = [None] * array.shape[1]
+    for idx, canonical in canonical_by_index.items():
+        lead_names_for_measurement[idx] = canonical
+    lead_names_for_measurement = [
+        name or f"unrecognized_{i}" for i, name in enumerate(lead_names_for_measurement)
+    ]
+
+    measurements = core_api.extract_basic_ecg_measurements(
+        array, fs, lead_names_for_measurement, sex=None
+    )
+
+    qrs_beat_count = int(measurements.get("heart_rate", {}).get("r_peak_count", 0))
+    if qrs_beat_count < MIN_QRS_BEATS_REQUIRED:
+        raise EcgIngestionError(
+            f"Only {qrs_beat_count} QRS complex(es) detected — at least "
+            f"{MIN_QRS_BEATS_REQUIRED} are required to compute a reliable "
+            "J-point-anchored ST measurement. The recording may be too short, "
+            "too noisy, or not a genuine ECG waveform."
+        )
+
+    heart_rate_bpm = measurements.get("heart_rate", {}).get("heart_rate_bpm")
+
+    st_segment = measurements.get("st_segment", {})
+    st_by_lead = {
+        item["lead"]: item["st_level_mv"] for item in st_segment.get("lead_measurements", [])
+    }
+
+    lead_measurements: list[LeadMeasurement] = []
+    excluded_low_quality: list[str] = []
+    for idx, canonical in canonical_by_index.items():
+        column = array[:, idx]
+        quality = core_api._lead_quality(column)
+        if quality < MIN_LEAD_QUALITY:
+            excluded_low_quality.append(canonical)
+            continue
+        st_mv = st_by_lead.get(canonical)
+        if st_mv is None:
+            continue  # assess_st_segment itself could not measure this lead
+        if st_mv >= 0:
+            lead_measurements.append(
+                LeadMeasurement(lead=canonical, st_elevation_mm=round(st_mv * MM_PER_MV, 2))
+            )
+        else:
+            lead_measurements.append(
+                LeadMeasurement(
+                    lead=canonical,
+                    st_elevation_mm=0.0,
+                    reciprocal_depression_mm=round(abs(st_mv) * MM_PER_MV, 2),
+                )
+            )
+
+    if excluded_low_quality:
+        warnings.append(f"Excluded leads with poor signal quality: {sorted(excluded_low_quality)}")
+
+    if not lead_measurements:
+        raise EcgIngestionError(
+            "No lead produced a usable ST measurement after quality filtering. "
+            "Cannot proceed without fabricating a value."
+        )
+
+    lvh_status = measurements.get("lvh", {}).get("status", "")
+    bbb_status = measurements.get("bbb", {}).get("status", "")
+    mimics = MimicFlags(
+        lvh=(lvh_status == "LVH criteria met"),
+        lbbb=("LBBB-like" in bbb_status),
+        rbbb=("RBBB-like" in bbb_status),
+    )
+    if mimics.lvh:
+        warnings.append("LVH criteria met on real measurement — ACS-CORE-003 correlation flag will apply.")
+    if mimics.lbbb or mimics.rbbb:
+        warnings.append(f"Bundle branch block pattern detected ({bbb_status}) — ACS-CORE-003 correlation flag will apply.")
+
+    return lead_measurements, mimics, heart_rate_bpm, qrs_beat_count, excluded_low_quality, warnings
+
+
 def ingest_real_wfdb_ecg(signals, fields: dict) -> RealEcgIngestionResult:
     """
     Convert a loaded WFDB record (as returned by wfdb.rdsamp / this repo's
@@ -110,8 +210,6 @@ def ingest_real_wfdb_ecg(signals, fields: dict) -> RealEcgIngestionResult:
     standard leads, non-mV units on every lead, or too few detected beats
     to trust a rhythm/QRS-anchored ST measurement.
     """
-    from cardiomirai import api as core_api  # deferred: see module docstring
-
     warnings: list[str] = []
 
     array = np.asarray(signals, dtype=float)
@@ -184,83 +282,10 @@ def ingest_real_wfdb_ecg(signals, fields: dict) -> RealEcgIngestionResult:
             "safely convert amplitudes to millimetres without a confirmed unit."
         )
 
-    lead_names_for_measurement = [None] * array.shape[1]
-    for idx, canonical in canonical_by_index.items():
-        lead_names_for_measurement[idx] = canonical
-    # extract_basic_ecg_measurements indexes by position using lead_names;
-    # unrecognized/excluded columns are left as None-labeled and will not
-    # match any of the 12 canonical names it looks for downstream.
-    lead_names_for_measurement = [name or f"unrecognized_{i}" for i, name in enumerate(lead_names_for_measurement)]
-
-    measurements = core_api.extract_basic_ecg_measurements(
-        array, fs, lead_names_for_measurement, sex=None
+    lead_measurements, mimics, heart_rate_bpm, qrs_beat_count, excluded_low_quality, measure_warnings = (
+        measure_array_to_lead_inputs(array, fs, canonical_by_index)
     )
-
-    qrs_beat_count = int(measurements.get("heart_rate", {}).get("r_peak_count", 0))
-    if qrs_beat_count < MIN_QRS_BEATS_REQUIRED:
-        raise EcgIngestionError(
-            f"Only {qrs_beat_count} QRS complex(es) detected — at least "
-            f"{MIN_QRS_BEATS_REQUIRED} are required to compute a reliable "
-            "J-point-anchored ST measurement. The recording may be too short, "
-            "too noisy, or not a genuine ECG waveform."
-        )
-
-    heart_rate_bpm = measurements.get("heart_rate", {}).get("heart_rate_bpm")
-
-    st_segment = measurements.get("st_segment", {})
-    st_by_lead = {
-        item["lead"]: item["st_level_mv"] for item in st_segment.get("lead_measurements", [])
-    }
-
-    lead_measurements: list[LeadMeasurement] = []
-    excluded_low_quality: list[str] = []
-    for idx, canonical in canonical_by_index.items():
-        column = array[:, idx]
-        quality = core_api._lead_quality(column)
-        if quality < MIN_LEAD_QUALITY:
-            excluded_low_quality.append(canonical)
-            continue
-        st_mv = st_by_lead.get(canonical)
-        if st_mv is None:
-            continue  # assess_st_segment itself could not measure this lead
-        if st_mv >= 0:
-            lead_measurements.append(
-                LeadMeasurement(lead=canonical, st_elevation_mm=round(st_mv * MM_PER_MV, 2))
-            )
-        else:
-            lead_measurements.append(
-                LeadMeasurement(
-                    lead=canonical,
-                    st_elevation_mm=0.0,
-                    reciprocal_depression_mm=round(abs(st_mv) * MM_PER_MV, 2),
-                )
-            )
-
-    if excluded_low_quality:
-        warnings.append(f"Excluded leads with poor signal quality: {sorted(excluded_low_quality)}")
-
-    if not lead_measurements:
-        raise EcgIngestionError(
-            "No lead produced a usable ST measurement after quality filtering. "
-            "Cannot proceed without fabricating a value."
-        )
-
-    # --- Mimic detection from real measurements already computed ---------
-    lvh_status = measurements.get("lvh", {}).get("status", "")
-    bbb_status = measurements.get("bbb", {}).get("status", "")
-    mimics = MimicFlags(
-        lvh=(lvh_status == "LVH criteria met"),
-        lbbb=("LBBB-like" in bbb_status),
-        rbbb=("RBBB-like" in bbb_status),
-        # Not detectable by the existing measurement engine: paced rhythm,
-        # pericarditis, Brugada, Takotsubo, early repolarization. Left False
-        # here; the caller (API layer) may still accept these as optional
-        # manually-supplied flags — see cardiomirai/acs/api.py.
-    )
-    if mimics.lvh:
-        warnings.append("LVH criteria met on real measurement — ACS-CORE-003 correlation flag will apply.")
-    if mimics.lbbb or mimics.rbbb:
-        warnings.append(f"Bundle branch block pattern detected ({bbb_status}) — ACS-CORE-003 correlation flag will apply.")
+    warnings.extend(measure_warnings)
 
     quality_leads_detected = len(lead_measurements) + len(excluded_low_quality)
     # "detected" for the quality-gate display counts leads that were at

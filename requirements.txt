@@ -6,3 +6,5 @@ scipy
 joblib
 pandas
 wfdb
+opencv-python-headless
+pymupdf
