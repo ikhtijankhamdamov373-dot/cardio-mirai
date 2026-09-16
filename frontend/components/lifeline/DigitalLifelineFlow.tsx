@@ -57,10 +57,8 @@ export function DigitalLifelineFlow() {
 
   const handleDemo = (level: "RED" | "YELLOW" | "GREEN") => {
     setIsSyntheticDemo(true);
-    setPreviewUrl(null);
     setOutcome(SYNTHETIC_DEMO_OUTCOMES[level]);
-    setEcgAcquiredAt(Date.now());
-    setAiScreeningAt(Date.now() + 1200);
+    setAiScreeningAt(Date.now());
     setConfirmedState("none");
     setStage("result");
   };
@@ -115,11 +113,10 @@ export function DigitalLifelineFlow() {
       {stage === "analyzing" && (
         <section className="mt-10">
           {previewUrl && (
-            /* eslint-disable-next-line @next/next/no-img-element */
             <img src={previewUrl} alt="Uploaded ECG" className="mx-auto max-h-56 rounded-card border border-line object-contain" />
           )}
           <div className="mt-6">
-            <LoadingState label="Cardio MIRAI AI Screening…" />
+            <LoadingState label="Cardio MIRAI AI Screening..." />
           </div>
         </section>
       )}
@@ -129,42 +126,36 @@ export function DigitalLifelineFlow() {
           {previewUrl && (
             <Card>
               <p className="text-xs font-bold text-muted uppercase">ECG Image</p>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={previewUrl} alt="Uploaded ECG" className="mt-1 max-h-48 w-full rounded-card border border-line object-contain" />
             </Card>
           )}
 
           {isSyntheticDemo && (
             <div className="rounded-card border-2 border-amber bg-amber/10 px-4 py-3 text-center">
-              <p className="font-black text-amber">SYNTHETIC DEMONSTRATION CASE</p>
+              <p className="font-black text-amber">SYNTHETIC DEMONSTRATION PATHWAY — NOT DERIVED FROM UPLOADED ECG</p>
             </div>
           )}
 
           {outcome.isRealResult || isSyntheticDemo ? (
-            <TriageCard
-              outcome={outcome}
-              onConfirm={() => setConfirmedState("confirmed")}
-              onOverride={() => setConfirmedState("overridden")}
-              confirmedState={confirmedState}
-            />
+            <>
+              <TriageCard
+                outcome={outcome}
+                onConfirm={() => setConfirmedState("confirmed")}
+                onOverride={() => setConfirmedState("overridden")}
+                confirmedState={confirmedState}
+              />
+              {outcome.level !== "UNKNOWN" && <RoutingCard level={outcome.level} />}
+            </>
           ) : (
-            <DemonstrationFallbackCard reason={outcome.failureReason} />
+            <DemonstrationFallbackCard reason={outcome.failureReason} onSelectDemo={handleDemo} />
           )}
 
-          <AfModuleCard isImageUpload={true} />
-
           <ClinicalContextPanel value={clinical} onChange={setClinical} />
-
           <RolePathwayTabs />
-
           <RepeatEcgCard onUploadRepeat={handleUpload} />
-
-          <RoutingCard />
-
           <TimelinePanel timeline={{ ecgAcquiredAt, aiScreeningAt }} />
-
+          <AfModuleCard isImageUpload={true} />
           <RoadmapSection />
-
           <OfflineRuralSection />
 
           <div className="text-center">

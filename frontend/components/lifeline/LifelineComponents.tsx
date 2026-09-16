@@ -6,10 +6,6 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import type { TriageLevel, TriageOutcome } from "@/lib/lifelineApi";
 
-// ---------------------------------------------------------------------------
-// Triage card
-// ---------------------------------------------------------------------------
-
 const TRIAGE_META: Record<
   Exclude<TriageLevel, "UNKNOWN">,
   { label: string; tone: "red" | "amber" | "blue"; bg: string; actions: string[]; note: string }
@@ -23,36 +19,36 @@ const TRIAGE_META: Record<
       "Immediate physician review",
       "Review original 12-lead ECG",
       "Activate locally approved STEMI/ACS pathway if confirmed",
-      "Contact PCI-capable center",
-      "Arrange emergency transfer where indicated",
+      "Contact PCI-capable center and arrange emergency transfer",
+      "If timely primary PCI is not achievable, clinician assesses fibrinolysis eligibility when STEMI is confirmed and there are no contraindications",
       "Do not delay emergency care waiting for AI confirmation",
     ],
-    note: "URGENT CLINICIAN REVIEW",
+    note: "EMERGENCY — immediate clinician review and reperfusion pathway assessment",
   },
   YELLOW: {
     label: "Possible Ischemic / High-Risk ECG Abnormality",
     tone: "amber",
     bg: "border-amber/40 bg-amber/10",
     actions: [
-      "Physician review",
+      "Urgent physician review",
       "Clinical ACS assessment",
-      "hs-cTn where available/appropriate",
+      "hs-cTn where available and appropriate",
       "Repeat/serial ECG when clinically indicated",
-      "Consider specialist consultation/transfer according to clinical status",
+      "Risk-stratify and obtain specialist/PCI-center consultation or transfer when indicated",
     ],
-    note: "NSTEMI cannot be diagnosed or excluded from ECG alone.",
+    note: "NSTEMI cannot be diagnosed or excluded from ECG alone. Generic YELLOW triage is not an indication for fibrinolysis.",
   },
   GREEN: {
-    label: "No emergency ECG pattern identified by prototype",
+    label: "No Emergency ECG Pattern Identified",
     tone: "blue",
     bg: "border-green/40 bg-green/5",
     actions: [
       "Continue clinical assessment",
-      "ACS is NOT excluded",
-      "Review symptoms/vital signs",
-      "Biomarker testing/serial ECG as clinically indicated",
+      "Review symptoms, vital signs, and cardiovascular risk",
+      "If ACS remains suspected: repeat ECG, biomarkers, and physician review as appropriate",
+      "Local management may continue when the clinician determines emergency transfer is not required",
     ],
-    note: "ACS is not excluded by this screening result.",
+    note: "GREEN DOES NOT MEAN ACS IS EXCLUDED.",
   },
 };
 
@@ -76,72 +72,67 @@ export function TriageCard({
         <Badge tone={outcome.isRealResult ? "blue" : "neutral"}>
           {outcome.isRealResult ? "REAL IMAGE-DERIVED RESULT" : "SYNTHETIC DEMONSTRATION CASE"}
         </Badge>
-        <span className="text-3xl font-black" style={{ color: meta.tone === "red" ? "#d62839" : meta.tone === "amber" ? "#c47a00" : "#16834a" }}>
+        <span className="text-4xl font-black" style={{ color: meta.tone === "red" ? "#d62839" : meta.tone === "amber" ? "#c47a00" : "#16834a" }}>
           {outcome.level}
         </span>
       </div>
       <p className="mt-3 text-xl font-black text-navy">{meta.label}</p>
       <p className="mt-1 text-sm font-bold text-ink">{meta.note}</p>
 
-      <ul className="mt-4 space-y-1.5 text-sm text-ink">
-        {meta.actions.map((a) => (
-          <li key={a}>• {a}</li>
-        ))}
-      </ul>
+      <div className="mt-4 rounded-card border border-line bg-white/70 p-3">
+        <p className="text-xs font-black uppercase text-muted">What happens next?</p>
+        <ul className="mt-2 space-y-1.5 text-sm text-ink">
+          {meta.actions.map((a) => <li key={a}>• {a}</li>)}
+        </ul>
+      </div>
 
       <div className="mt-5 flex flex-wrap gap-3">
-        <Button
-          variant={confirmedState === "confirmed" ? "primary" : "secondary"}
-          onClick={onConfirm}
-        >
-          CONFIRM TRIAGE
-        </Button>
-        <Button
-          variant={confirmedState === "overridden" ? "primary" : "secondary"}
-          onClick={onOverride}
-        >
-          OVERRIDE TRIAGE
-        </Button>
+        <Button variant={confirmedState === "confirmed" ? "primary" : "secondary"} onClick={onConfirm}>CONFIRM TRIAGE</Button>
+        <Button variant={confirmedState === "overridden" ? "primary" : "secondary"} onClick={onOverride}>OVERRIDE TRIAGE</Button>
       </div>
       {confirmedState !== "none" && (
         <p className="mt-2 text-xs text-muted">
-          {confirmedState === "confirmed" ? "Triage confirmed by clinician." : "Triage overridden by clinician."}
+          {confirmedState === "confirmed" ? "Triage confirmed by clinician." : "Triage overridden by clinician. Final clinical decision remains with the physician."}
         </p>
       )}
     </Card>
   );
 }
 
-export function DemonstrationFallbackCard({ reason }: { reason?: string }) {
+export function DemonstrationFallbackCard({
+  reason,
+  onSelectDemo,
+}: {
+  reason?: string;
+  onSelectDemo: (level: "RED" | "YELLOW" | "GREEN") => void;
+}) {
   return (
     <Card className="border-amber/40 bg-amber/10">
-      <Badge tone="amber">DEMONSTRATION / RESEARCH PROTOTYPE MODE</Badge>
-      <p className="mt-3 text-sm text-ink">
-        The experimental image-analysis pipeline could not produce a
-        reliable result for this upload{reason ? `: ${reason}` : "."} Rather
-        than fabricate a measurement, here is an example of how the
-        screening workflow operates once digitization succeeds.
+      <Badge tone="amber">IMAGE ANALYSIS NOT AVAILABLE</Badge>
+      <p className="mt-3 font-bold text-navy">This uploaded ECG could not be reliably classified by the current image-analysis prototype.</p>
+      <p className="mt-2 text-sm text-ink">
+        {reason ? `${reason} ` : ""}No patient-specific RED, YELLOW, or GREEN result has been generated.
       </p>
+
+      <div className="mt-4 rounded-card border border-amber/40 bg-white p-3 text-center">
+        <p className="font-black text-amber">PRESENTATION DEMONSTRATION</p>
+        <p className="mt-1 text-xs text-muted">Choose a synthetic case to demonstrate the corresponding pathway. It is not derived from the uploaded ECG.</p>
+      </div>
+
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         {(["RED", "YELLOW", "GREEN"] as const).map((level) => (
-          <div key={level} className="rounded-card border border-line bg-white p-3 text-center">
-            <p className="text-lg font-black" style={{ color: level === "RED" ? "#d62839" : level === "YELLOW" ? "#c47a00" : "#16834a" }}>
-              {level}
-            </p>
-            <p className="mt-1 text-xs text-muted">{TRIAGE_META[level].label}</p>
-          </div>
+          <button key={level} type="button" onClick={() => onSelectDemo(level)} className="rounded-card border-2 border-line bg-white p-4 text-center transition hover:shadow-panel">
+            <p className="text-2xl font-black" style={{ color: level === "RED" ? "#d62839" : level === "YELLOW" ? "#c47a00" : "#16834a" }}>{level}</p>
+            <p className="mt-2 text-xs font-semibold text-ink">{TRIAGE_META[level].label}</p>
+            <p className="mt-3 text-xs font-black text-blue">SHOW {level} PATHWAY →</p>
+          </button>
         ))}
       </div>
-      <p className="mt-3 text-xs text-muted italic">
-        Example screening workflow — not derived from your uploaded image.
-      </p>
+
+      <p className="mt-4 text-center text-xs font-bold text-red">SYNTHETIC DEMONSTRATION ONLY — NOT DERIVED FROM UPLOADED ECG</p>
     </Card>
   );
 }
-
-// ---------------------------------------------------------------------------
-// AF module
-// ---------------------------------------------------------------------------
 
 export function AfModuleCard({ isImageUpload }: { isImageUpload: boolean }) {
   return (
@@ -150,10 +141,7 @@ export function AfModuleCard({ isImageUpload }: { isImageUpload: boolean }) {
       {isImageUpload ? (
         <>
           <Badge tone="amber">AF analysis from ECG image — Research integration in progress</Badge>
-          <p className="mt-2 text-sm text-muted">
-            Existing capability: Digital ECG AF analysis available in Cardio
-            MIRAI ECG Core.
-          </p>
+          <p className="mt-2 text-sm text-muted">Existing capability: Digital ECG AF analysis available in Cardio MIRAI ECG Core.</p>
         </>
       ) : (
         <p className="mt-2 text-sm text-muted">Rhythm screening available for digital ECG uploads.</p>
@@ -171,10 +159,6 @@ export function AfModuleCard({ isImageUpload }: { isImageUpload: boolean }) {
     </Card>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Clinical context (short form)
-// ---------------------------------------------------------------------------
 
 export interface ClinicalContext {
   chestPain: boolean | null;
@@ -202,29 +186,23 @@ export function ClinicalContextPanel({ value, onChange }: { value: ClinicalConte
             <Button variant={value.chestPain === false ? "primary" : "secondary"} onClick={() => set("chestPain", false)}>NO</Button>
           </div>
         </div>
-        <label className="text-xs font-semibold text-ink">
-          Symptom onset
+        <label className="text-xs font-semibold text-ink">Symptom onset
           <input type="text" placeholder="e.g. 45 min ago" className="mt-1 w-full rounded-card border border-line px-2 py-2 text-sm" value={value.onsetTime} onChange={(e) => set("onsetTime", e.target.value)} />
         </label>
-        <label className="text-xs font-semibold text-ink">
-          SBP
+        <label className="text-xs font-semibold text-ink">SBP
           <input type="number" className="mt-1 w-full rounded-card border border-line px-2 py-2 text-sm" value={value.sbp} onChange={(e) => set("sbp", e.target.value)} />
         </label>
-        <label className="text-xs font-semibold text-ink">
-          Heart rate
+        <label className="text-xs font-semibold text-ink">Heart rate
           <input type="number" className="mt-1 w-full rounded-card border border-line px-2 py-2 text-sm" value={value.heartRate} onChange={(e) => set("heartRate", e.target.value)} />
         </label>
-        <label className="text-xs font-semibold text-ink">
-          SpO₂
+        <label className="text-xs font-semibold text-ink">SpO2
           <input type="number" className="mt-1 w-full rounded-card border border-line px-2 py-2 text-sm" value={value.spo2} onChange={(e) => set("spo2", e.target.value)} />
         </label>
         <div>
           <p className="text-xs font-semibold text-ink">Known CAD</p>
           <div className="mt-1 flex gap-1">
             {(["yes", "no", "unknown"] as const).map((v) => (
-              <Button key={v} variant={value.knownCad === v ? "primary" : "secondary"} onClick={() => set("knownCad", v)}>
-                {v.toUpperCase()}
-              </Button>
+              <Button key={v} variant={value.knownCad === v ? "primary" : "secondary"} onClick={() => set("knownCad", v)}>{v.toUpperCase()}</Button>
             ))}
           </div>
         </div>
@@ -232,10 +210,6 @@ export function ClinicalContextPanel({ value, onChange }: { value: ClinicalConte
     </Card>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Role-based pathway tabs
-// ---------------------------------------------------------------------------
 
 const NURSE_STEPS = [
   "Acquire/upload 12-lead ECG",
@@ -263,12 +237,8 @@ export function RolePathwayTabs() {
   return (
     <Card>
       <div className="flex gap-2">
-        <Button variant={tab === "nurse" ? "primary" : "secondary"} onClick={() => setTab("nurse")}>
-          NURSE / FELDSHER
-        </Button>
-        <Button variant={tab === "doctor" ? "primary" : "secondary"} onClick={() => setTab("doctor")}>
-          DOCTOR
-        </Button>
+        <Button variant={tab === "nurse" ? "primary" : "secondary"} onClick={() => setTab("nurse")}>NURSE / FELDSHER</Button>
+        <Button variant={tab === "doctor" ? "primary" : "secondary"} onClick={() => setTab("doctor")}>DOCTOR</Button>
       </div>
       <ol className="mt-4 space-y-1.5 text-sm text-ink list-decimal list-inside">
         {steps.map((s) => <li key={s}>{s}</li>)}
@@ -278,52 +248,64 @@ export function RolePathwayTabs() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Repeat ECG
-// ---------------------------------------------------------------------------
-
 export function RepeatEcgCard({ onUploadRepeat }: { onUploadRepeat: (files: FileList | null) => void }) {
   return (
     <Card>
       <p className="font-bold text-navy">Repeat ECG</p>
-      <p className="mt-1 text-sm text-muted">
-        If initial ECG is non-diagnostic but symptoms persist: repeat ECG
-        recommended according to clinical assessment.
-      </p>
+      <p className="mt-1 text-sm text-muted">If the initial ECG is non-diagnostic but symptoms persist, repeat ECG according to clinical assessment.</p>
       <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => onUploadRepeat(e.target.files)} className="mt-3 w-full text-sm" />
     </Card>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Emergency routing
-// ---------------------------------------------------------------------------
+export function RoutingCard({ level }: { level: Exclude<TriageLevel, "UNKNOWN"> }) {
+  const pathways = {
+    RED: {
+      title: "RED — Emergency Reperfusion / Transfer Pathway",
+      boxes: ["First medical contact", "Immediate physician review", "STEMI / acute occlusion suspected", "Activate emergency ACS / reperfusion pathway", "PCI-capable center"],
+      routing: "PCI-CAPABLE CENTER — EMERGENCY PRIORITY",
+      detail: "Primary PCI is preferred when timely achievable. If timely PCI is not achievable, an eligible confirmed STEMI patient requires clinician assessment for fibrinolysis and contraindications, followed by transfer to a PCI-capable center.",
+    },
+    YELLOW: {
+      title: "YELLOW — Urgent ACS Assessment Pathway",
+      boxes: ["First medical contact", "Urgent doctor review", "Clinical ACS assessment", "hs-cTn + serial ECG as appropriate", "Risk stratification / specialist consultation"],
+      routing: "SPECIALIST / PCI-CENTER CONSULTATION AS INDICATED",
+      detail: "If high-risk ACS is suspected or confirmed, escalate to specialist/PCI-center consultation or transfer according to clinical status. NSTEMI cannot be diagnosed from ECG alone.",
+    },
+    GREEN: {
+      title: "GREEN — Local Clinical Assessment Pathway",
+      boxes: ["First medical contact", "Clinical assessment", "Symptoms + vitals + risk factors", "Further testing if ACS remains suspected", "Local management if emergency transfer is not required"],
+      routing: "LOCAL MANAGEMENT MAY CONTINUE — SUBJECT TO CLINICIAN ASSESSMENT",
+      detail: "GREEN does not exclude ACS. If clinical suspicion persists, repeat ECG, biomarkers and physician review are appropriate before deciding on local management or escalation.",
+    },
+  };
+  const data = pathways[level];
 
-export function RoutingCard() {
   return (
     <Card>
-      <p className="font-bold text-navy">Emergency Routing</p>
-      <div className="mt-2 flex flex-col items-center gap-1 text-sm">
-        {["Current facility", "Cardio MIRAI triage", "Doctor confirmation", "PCI-capable center / appropriate emergency facility"].map((s, i, arr) => (
-          <div key={s} className="flex flex-col items-center">
-            <div className="rounded-card border border-line bg-bg px-3 py-1.5 font-semibold text-ink">{s}</div>
-            {i < arr.length - 1 && <span className="text-muted">↓</span>}
+      <p className="text-lg font-black text-navy">{data.title}</p>
+      <div className="mt-4 flex flex-col items-center gap-1 text-sm">
+        {data.boxes.map((s, i) => (
+          <div key={s} className="flex w-full flex-col items-center">
+            <div className="w-full rounded-card border border-line bg-bg px-3 py-2 text-center font-semibold text-ink">{s}</div>
+            {i < data.boxes.length - 1 && <span className="py-1 text-xl text-muted">↓</span>}
           </div>
         ))}
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
-        <div><p className="text-muted">Nearest PCI center</p><p className="font-semibold text-ink">—</p></div>
-        <div><p className="text-muted">Estimated transfer time</p><p className="font-semibold text-ink">—</p></div>
-        <div><p className="text-muted">Contact center</p><p className="font-semibold text-ink">—</p></div>
+      <div className="mt-4 rounded-card border border-line bg-white p-3">
+        <p className="text-xs font-black uppercase text-muted">Routing decision</p>
+        <p className="mt-1 text-sm font-black text-navy">{data.routing}</p>
+        <p className="mt-2 text-xs text-muted">{data.detail}</p>
       </div>
-      <Badge tone="neutral">GPS routing integration — prototype / planned integration</Badge>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
+        <div><p className="text-muted">Nearest PCI center</p><p className="font-semibold text-ink">Integration planned</p></div>
+        <div><p className="text-muted">Estimated transport time</p><p className="font-semibold text-ink">GPS integration planned</p></div>
+        <div><p className="text-muted">Contact center</p><p className="font-semibold text-ink">Integration planned</p></div>
+      </div>
+      <div className="mt-3"><Badge tone="neutral">GPS / emergency referral integration — planned</Badge></div>
     </Card>
   );
 }
-
-// ---------------------------------------------------------------------------
-// System timeline
-// ---------------------------------------------------------------------------
 
 export interface Timeline {
   ecgAcquiredAt: number | null;
@@ -344,16 +326,12 @@ export function TimelinePanel({ timeline }: { timeline: Timeline }) {
         <li>ECG acquired — {timeline.ecgAcquiredAt ? "00:00" : "Pending"}</li>
         <li>AI screening — {fmt(timeline.aiScreeningAt, timeline.ecgAcquiredAt)}</li>
         <li>Doctor review — Pending</li>
-        <li>Transfer activated — Pending</li>
-        <li>PCI/reperfusion — External system</li>
+        <li>Transfer decision — Pending</li>
+        <li>PCI/reperfusion — External clinical system</li>
       </ul>
     </Card>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Roadmap
-// ---------------------------------------------------------------------------
 
 export function RoadmapSection() {
   return (
@@ -399,28 +377,17 @@ export function OfflineRuralSection() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Presentation demo menu
-// ---------------------------------------------------------------------------
-
 export function PresentationDemoMenu({ onSelect }: { onSelect: (level: "RED" | "YELLOW" | "GREEN") => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="fixed bottom-4 right-4 z-30">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="rounded-full bg-navy px-3 py-2 text-xs font-bold text-white shadow-panel"
-      >
+      <button onClick={() => setOpen((v) => !v)} className="rounded-full bg-navy px-3 py-2 text-xs font-bold text-white shadow-panel">
         Presentation Demo
       </button>
       {open && (
         <div className="mt-2 rounded-card border border-line bg-white p-2 shadow-panel">
           {(["RED", "YELLOW", "GREEN"] as const).map((level) => (
-            <button
-              key={level}
-              onClick={() => { onSelect(level); setOpen(false); }}
-              className="block w-full rounded-card px-3 py-2 text-left text-sm font-semibold hover:bg-bg"
-            >
+            <button key={level} onClick={() => { onSelect(level); setOpen(false); }} className="block w-full rounded-card px-3 py-2 text-left text-sm font-semibold hover:bg-bg">
               Demo: {level} case
             </button>
           ))}
